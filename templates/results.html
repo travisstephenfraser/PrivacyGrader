@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% block title %}Results — Exam Grader{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="mb-0">Grading Results</h2>
+  <div class="d-flex gap-2">
+    <a href="/export{% if version_filter or batch_filter %}?{% if version_filter %}version={{ version_filter }}{% endif %}{% if version_filter and batch_filter %}&{% endif %}{% if batch_filter %}batch={{ batch_filter }}{% endif %}{% endif %}" class="btn btn-success btn-sm">⬇ Summary CSV</a>
+    <a href="/export-detailed{% if version_filter or batch_filter %}?{% if version_filter %}version={{ version_filter }}{% endif %}{% if version_filter and batch_filter %}&{% endif %}{% if batch_filter %}batch={{ batch_filter }}{% endif %}{% endif %}" class="btn btn-outline-success btn-sm">⬇ Detailed CSV</a>
+  </div>
+</div>
+
+<!-- Filters + name toggle -->
+<form method="GET" action="/results" class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <div class="row g-2 align-items-end">
+      <div class="col-auto">
+        <label class="form-label fw-semibold mb-1">Version</label>
+        <select name="version" class="form-select form-select-sm" style="width:130px">
+          <option value="">All</option>
+          {% for v in versions %}
+          <option value="{{ v }}" {% if version_filter == v %}selected{% endif %}>Version {{ v }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <label class="form-label fw-semibold mb-1">Batch</label>
+        <select name="batch" class="form-select form-select-sm" style="width:130px">
+          <option value="">All</option>
+          {% for b in batches %}
+          <option value="{{ b }}" {% if batch_filter == b|string %}selected{% endif %}>Batch {{ b }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <div class="form-check mt-3">
+          <input class="form-check-input" type="checkbox" name="show_names"
+                 value="1" id="showNames" {% if show_names %}checked{% endif %}>
+          <label class="form-check-label" for="showNames">
+            Reveal student names
+          </label>
+        </div>
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-outline-primary btn-sm">Apply</button>
+      </div>
+    </div>
+  </div>
+</form>
+
+{% if not show_names %}
+<div class="alert alert-info py-2">
+  🔒 Showing anonymous IDs only. Check "Reveal student names" to de-anonymize.
+</div>
+{% endif %}
+
+{% if graded %}
+
+<!-- Summary table -->
+<table class="table table-hover align-middle mb-4">
+  <thead class="table-light">
+    <tr>
+      <th>Anon ID</th>
+      {% if show_names %}<th>Student</th><th>SID</th>{% endif %}
+      <th>Version</th>
+      <th>Batch</th>
+      <th>Score</th>
+      <th>%</th>
+      <th>Grade</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in graded %}
+    {% set pct = (r.total_earned / r.total_possible * 100) if r.total_possible else 0 %}
+    <tr>
+      <td><span class="anon-id">{{ r.anon_id }}</span></td>
+      {% if show_names %}
+        <td>{{ r.student_name }}</td>
+        <td class="font-monospace small text-muted">{{ r.student_sid or '—' }}</td>
+      {% endif %}
+      <td><span class="badge bg-secondary">Version {{ r.version }}</span></td>
+      <td>Batch {{ r.batch }}</td>
+      <td id="score-{{ r.anon_id }}" data-possible="{{ r.total_possible }}">{{ r.total_earned }} / {{ r.total_possible }}</td>
+      <td>
+        <span id="pct-{{ r.anon_id }}" class="fw-semibold
+          {% if pct >= 90 %}text-success
+          {% elif pct >= 70 %}text-primary
+          {% elif pct >= 60 %}text-warning
+          {% else %}text-danger{% endif %}">
+          {{ "%.1f"|format(pct) }}%
+        </span>
+      </td>
+      <td><span id="grade-{{ r.anon_id }}" class="badge
+          {% if r.letter_grade == 'A' %}bg-success
+          {% elif r.letter_grade == 'B' %}bg-primary
+          {% elif r.letter_grade == 'C' %}bg-warning text-dark
+          {% elif r.letter_grade == 'D' %}bg-warning
+          {% else %}bg-danger{% endif %}
+          fs-6">{{ r.letter_grade }}</span>
+      </td>
+      <td class="d-flex gap-1">
+        <button class="btn btn-sm btn-outline-secondary"
+                data-bs-toggle="collapse"
+                data-bs-target="#detail-{{ r.anon_id }}">
+          Details
+        </button>
+        <a href="/exam/{{ r.anon_id }}/report" target="_blank"
+           class="btn btn-sm btn-outline-primary">Report</a>
+      </td>
+    </tr>
+    <!-- Expandable detail row -->
+    <tr class="collapse" id="detail-{{ r.anon_id }}">
+      <td colspan="{% if show_names %}9{% else %}7{% endif %}" class="bg-light">
+        <div class="p-3">
+          <h6 class="text-muted mb-2">Overall Feedback</h6>
+          <p>{{ r.overall_feedback }}</p>
+
+          {% if r.scores %}
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="text-muted mb-0">Question Breakdown</h6>
+            <button type="button" id="save-btn-{{ r.anon_id }}"
+                    class="btn btn-sm btn-success"
+                    onclick="saveAdjustments('{{ r.anon_id }}')">
+              💾 Save Adjustments
+            </button>
+          </div>
+          <table class="table table-sm table-bordered mb-0">
+            <thead class="table-secondary">
+              <tr><th>Question</th><th>Earned</th><th>Max</th><th>Feedback</th></tr>
+            </thead>
+            <tbody>
+              {% for s in r.scores %}
+              <tr>
+                <td>{{ s.question }}</td>
+                <td>
+                  <input type="number"
+                         class="form-control form-control-sm earned-input"
+                         name="earned_{{ loop.index0 }}"
+                         value="{{ s.earned_points }}"
+                         min="0" max="{{ s.max_points }}" step="any"
+                         style="width:5rem"
+                         data-max="{{ s.max_points }}"
+                         data-anon-id="{{ r.anon_id }}">
+                </td>
+                <td>{{ s.max_points }}</td>
+                <td class="text-muted small">{{ s.feedback }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% endif %}
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% else %}
+<div class="text-center text-muted py-5">
+  <p class="fs-5">No graded exams yet.</p>
+  <a href="/exams" class="btn btn-primary">Go to Exams</a>
+</div>
+{% endif %}
+
+<script>
+(function () {
+  function pctClass(p) {
+    if (p >= 90) return 'text-success';
+    if (p >= 70) return 'text-primary';
+    if (p >= 60) return 'text-warning';
+    return 'text-danger';
+  }
+  function gradeClass(g) {
+    return {A:'bg-success', B:'bg-primary', C:'bg-warning text-dark', D:'bg-warning', F:'bg-danger'}[g] || 'bg-danger';
+  }
+
+  // Live preview: update Score/% in the main row as inputs change
+  document.addEventListener('input', function (e) {
+    if (!e.target.classList.contains('earned-input')) return;
+    const anonId   = e.target.dataset.anonId;
+    const possible = parseFloat(document.getElementById('score-' + anonId).dataset.possible);
+    let earned = 0;
+    document.querySelectorAll('.earned-input[data-anon-id="' + anonId + '"]').forEach(function (inp) {
+      const val = Math.max(0, Math.min(parseFloat(inp.value) || 0, parseFloat(inp.dataset.max)));
+      earned += val;
+    });
+    earned = Math.min(Math.round(earned * 100) / 100, possible);
+    const pct = possible > 0 ? Math.min(earned / possible * 100, 100) : 0;
+
+    document.getElementById('score-' + anonId).textContent = earned + ' / ' + possible;
+    const pctEl = document.getElementById('pct-' + anonId);
+    pctEl.textContent = pct.toFixed(1) + '%';
+    pctEl.className   = 'fw-semibold ' + pctClass(pct);
+  });
+
+  // Save via AJAX
+  window.saveAdjustments = function (anonId) {
+    const btn  = document.getElementById('save-btn-' + anonId);
+    const data = new FormData();
+    document.querySelectorAll('.earned-input[data-anon-id="' + anonId + '"]').forEach(function (inp) {
+      data.append(inp.name, inp.value);
+    });
+    btn.disabled    = true;
+    btn.textContent = 'Saving…';
+    fetch('/exam/' + anonId + '/report/update', { method: 'POST', body: data })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        document.getElementById('score-' + anonId).textContent = d.total_earned + ' / ' + d.total_possible;
+        const pctCap = Math.min(d.pct, 100);
+        const pctEl  = document.getElementById('pct-' + anonId);
+        pctEl.textContent = pctCap.toFixed(1) + '%';
+        pctEl.className   = 'fw-semibold ' + pctClass(pctCap);
+        const gradeEl = document.getElementById('grade-' + anonId);
+        gradeEl.textContent = d.letter_grade;
+        gradeEl.className   = 'badge fs-6 ' + gradeClass(d.letter_grade);
+        btn.disabled    = false;
+        btn.textContent = '✓ Saved';
+        setTimeout(function () { btn.textContent = '💾 Save Adjustments'; }, 2000);
+      })
+      .catch(function () {
+        btn.disabled    = false;
+        btn.textContent = 'Error — retry';
+      });
+  };
+})();
+</script>
+
+<div class="d-flex justify-content-start mt-4">
+  <a href="/exams" class="btn btn-secondary">← Back</a>
+</div>
+{% endblock %}

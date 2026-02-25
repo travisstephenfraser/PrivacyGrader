@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Exam {{ exam.anon_id }} — Review{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2 class="mb-0">Exam <span class="font-monospace text-secondary">{{ exam.anon_id }}</span></h2>
+  <a href="/exams" class="btn btn-outline-secondary btn-sm">← Back to Exams</a>
+</div>
+
+<!-- Metadata -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <div class="row g-3 align-items-center">
+      <div class="col-sm-3">
+        <p class="text-muted small mb-1">Version</p>
+        <span class="badge bg-secondary fs-6">Version {{ exam.version }}</span>
+      </div>
+      <div class="col-sm-3">
+        <p class="text-muted small mb-1">Batch</p>
+        <strong>Batch {{ exam.batch }}</strong>
+      </div>
+      <div class="col-sm-3">
+        <p class="text-muted small mb-1">Pages</p>
+        <strong>{{ page_count }}</strong>
+        <span class="text-muted small">({{ page_count - 1 }} sent to grader)</span>
+      </div>
+      <div class="col-sm-3">
+        <p class="text-muted small mb-1">Status</p>
+        {% if exam.grade_data %}
+          <div class="d-flex gap-2 align-items-center flex-wrap">
+            <span class="badge bg-success">Graded</span>
+            <form method="POST" action="/grade/{{ exam.anon_id }}">
+              <button type="submit" class="btn btn-sm btn-outline-success"
+                      onclick="return confirm('Re-grade this exam? The existing grade will be overwritten.')">
+                Re-grade
+              </button>
+            </form>
+            <form method="POST" action="/exam/{{ exam.anon_id }}/clear-grade">
+              <button type="submit" class="btn btn-sm btn-outline-danger"
+                      onclick="return confirm('Clear the saved grade? You will need to re-grade.')">
+                Clear
+              </button>
+            </form>
+          </div>
+        {% elif exam.ocr_text %}
+          <span class="badge bg-warning text-dark">OCR done</span>
+        {% else %}
+          <span class="badge bg-light text-dark border">Pending</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Student name + SID editor -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <h5 class="card-title mb-3">Student Info</h5>
+    <form method="POST" action="/exam/{{ exam.anon_id }}/update-name">
+      <div class="row g-2 align-items-end">
+        <div class="col-sm-6">
+          <label class="form-label small text-muted mb-1">Full Name</label>
+          <input type="text" name="student_name" class="form-control"
+                 value="{{ exam.student_name }}" required>
+        </div>
+        <div class="col-sm-4">
+          <label class="form-label small text-muted mb-1">Student SID</label>
+          <input type="text" name="student_sid" class="form-control font-monospace"
+                 value="{{ exam.student_sid or '' }}" placeholder="Optional">
+        </div>
+        <div class="col-sm-2">
+          <button type="submit" class="btn btn-primary w-100">Save</button>
+        </div>
+      </div>
+    </form>
+    <p class="text-muted small mt-2 mb-0">
+      Stored locally only — never sent to Claude.
+    </p>
+  </div>
+</div>
+
+<!-- Page viewer -->
+<div class="card border-0 shadow-sm">
+  <div class="card-body">
+    <h5 class="card-title mb-3">Pages</h5>
+
+    <!-- Page navigation buttons -->
+    <div class="d-flex flex-wrap gap-1 mb-3">
+      {% for p in range(page_count) %}
+      <button class="btn btn-sm page-btn {% if p == 0 %}btn-secondary{% else %}btn-outline-secondary{% endif %}"
+              onclick="showPage({{ p }})">
+        {% if p == 0 %}Cover{% else %}{{ p + 1 }}{% endif %}
+      </button>
+      {% endfor %}
+    </div>
+
+    <!-- Page image -->
+    <div class="text-center">
+      <img id="page-img"
+           src="/exam/{{ exam.anon_id }}/page/0"
+           class="img-fluid border rounded shadow-sm"
+           style="max-height: 85vh"
+           alt="Exam page">
+      <p id="page-label" class="text-muted small mt-2 mb-0">
+        Cover page — <strong>not</strong> sent to Claude during grading
+      </p>
+    </div>
+  </div>
+</div>
+
+<script>
+const anonId    = "{{ exam.anon_id }}";
+const pageCount = {{ page_count }};
+
+function showPage(num) {
+  document.getElementById('page-img').src = `/exam/${anonId}/page/${num}`;
+  document.getElementById('page-label').textContent = num === 0
+    ? 'Cover page — not sent to Claude during grading'
+    : `Page ${num + 1} of ${pageCount} — sent to Claude for grading`;
+
+  document.querySelectorAll('.page-btn').forEach((btn, i) => {
+    btn.className = 'btn btn-sm page-btn ' +
+      (i === num ? 'btn-secondary' : 'btn-outline-secondary');
+  });
+}
+</script>
+{% endblock %}

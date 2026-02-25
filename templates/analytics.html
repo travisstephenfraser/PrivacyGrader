@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+{% block title %}Analytics — Exam Grader{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  .stat-card { background:#fff; border:1px solid #dee2e6; border-radius:8px; padding:1rem 1.25rem; }
+  .stat-card .num { font-size:1.9rem; font-weight:700; line-height:1; }
+  .stat-card .lbl { font-size:.78rem; color:#6c757d; margin-top:.2rem; }
+  .chart-card { background:#fff; border:1px solid #dee2e6; border-radius:8px; padding:1.25rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="mb-0">Analytics</h2>
+  <a href="{{ request.path }}{% if version_filter or batch_filter %}?{% if version_filter %}version={{ version_filter }}{% endif %}{% if version_filter and batch_filter %}&{% endif %}{% if batch_filter %}batch={{ batch_filter }}{% endif %}{% endif %}"
+     class="btn btn-outline-secondary btn-sm">↺ Refresh</a>
+</div>
+
+<!-- Filters -->
+<form method="GET" action="/analytics" class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <div class="row g-2 align-items-end">
+      <div class="col-auto">
+        <label class="form-label fw-semibold mb-1">Version</label>
+        <select name="version" class="form-select form-select-sm" style="width:130px">
+          <option value="">All</option>
+          {% for v in versions %}
+          <option value="{{ v }}" {% if version_filter == v %}selected{% endif %}>Version {{ v }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <label class="form-label fw-semibold mb-1">Batch</label>
+        <select name="batch" class="form-select form-select-sm" style="width:130px">
+          <option value="">All</option>
+          {% for b in batches %}
+          <option value="{{ b }}" {% if batch_filter == b|string %}selected{% endif %}>Batch {{ b }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-outline-primary btn-sm">Apply</button>
+        <a href="/analytics" class="btn btn-outline-secondary btn-sm ms-1">Reset</a>
+      </div>
+    </div>
+  </div>
+</form>
+
+{% if n == 0 %}
+<div class="text-center text-muted py-5">
+  <p class="fs-5">No graded exams yet.</p>
+  <a href="/exams" class="btn btn-primary">Go to Exams</a>
+</div>
+{% else %}
+
+<!-- Summary stat cards -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-2">
+    <div class="stat-card text-center">
+      <div class="num text-primary">{{ n }}</div>
+      <div class="lbl">Students</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="stat-card text-center">
+      <div class="num {% if mean >= 70 %}text-success{% elif mean >= 60 %}text-warning{% else %}text-danger{% endif %}">
+        {{ mean }}%
+      </div>
+      <div class="lbl">Mean score</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="stat-card text-center">
+      <div class="num {% if median >= 70 %}text-success{% elif median >= 60 %}text-warning{% else %}text-danger{% endif %}">
+        {{ median }}%
+      </div>
+      <div class="lbl">Median score</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="stat-card text-center">
+      <div class="num text-secondary">{{ stdev }}%</div>
+      <div class="lbl">Std deviation</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="stat-card text-center">
+      <div class="num text-muted" style="font-size:1.3rem">{{ lo }}% – {{ hi }}%</div>
+      <div class="lbl">Range (min – max)</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="stat-card text-center">
+      <div class="num {% if pass_r >= 70 %}text-success{% elif pass_r >= 50 %}text-warning{% else %}text-danger{% endif %}">
+        {{ pass_r }}%
+      </div>
+      <div class="lbl">Pass rate (≥70%)</div>
+    </div>
+  </div>
+</div>
+
+<!-- Struggling questions alert -->
+{% if struggling %}
+<div class="alert alert-danger mb-4">
+  <strong>⚠ Questions needing attention</strong> — average score below 60%:
+  <ul class="mb-0 mt-1">
+    {% for s in struggling %}
+    <li>
+      <strong>{{ s.question }}</strong> — avg {{ s.avg }}%,
+      {{ s.fail_rate }}% of students scored below 70%
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<!-- Charts row 1: Distribution + Grade Band -->
+<div class="row g-4 mb-4">
+  <div class="col-lg-8">
+    <div class="chart-card h-100">
+      <h6 class="fw-semibold text-muted mb-3">Grade Distribution</h6>
+      <canvas id="distChart" height="220"></canvas>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="chart-card h-100 d-flex flex-column">
+      <h6 class="fw-semibold text-muted mb-3">Grade Band Breakdown</h6>
+      <div class="flex-grow-1 d-flex align-items-center">
+        <canvas id="bandChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts row 2: Question difficulty -->
+{% if q_labels %}
+<div class="chart-card mb-4">
+  <h6 class="fw-semibold text-muted mb-3">Average Score % per Question</h6>
+  <canvas id="qChart" style="min-height:{{ [280, q_labels|length * 34]|max }}px"></canvas>
+</div>
+{% endif %}
+
+<script>
+(function () {
+  /* ── Data from server ── */
+  const distLabels = {{ dist_labels | tojson }};
+  const distBins   = {{ dist_bins   | tojson }};
+  const bandData   = [
+    {{ grade_bands.A }}, {{ grade_bands.B }}, {{ grade_bands.C }},
+    {{ grade_bands.D }}, {{ grade_bands.F }}
+  ];
+  const qLabels   = {{ q_labels    | tojson }};
+  const qAvgPct   = {{ q_avg_pct   | tojson }};
+
+  /* ── Colour helpers ── */
+  function distColor(label) {
+    const lo = parseInt(label);
+    if (lo >= 90) return '#198754';
+    if (lo >= 80) return '#0d6efd';
+    if (lo >= 70) return '#6f42c1';
+    if (lo >= 60) return '#fd7e14';
+    return '#dc3545';
+  }
+  function qColor(avg) {
+    if (avg >= 80) return '#198754';
+    if (avg >= 60) return '#fd7e14';
+    return '#dc3545';
+  }
+
+  Chart.defaults.font.family = 'system-ui, sans-serif';
+
+  /* ── 1. Grade Distribution ── */
+  new Chart(document.getElementById('distChart'), {
+    type: 'bar',
+    data: {
+      labels: distLabels,
+      datasets: [{
+        label: 'Students',
+        data: distBins,
+        backgroundColor: distLabels.map(distColor),
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: {
+          label: ctx => ` ${ctx.parsed.y} student${ctx.parsed.y !== 1 ? 's' : ''}`
+        }}
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: { stepSize: 1, precision: 0 },
+          title: { display: true, text: 'Number of students' }
+        },
+        x: { title: { display: true, text: 'Score (%)' } }
+      }
+    }
+  });
+
+  /* ── 2. Grade Band Donut ── */
+  new Chart(document.getElementById('bandChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['A (90–100)', 'B (80–89)', 'C (70–79)', 'D (60–69)', 'F (<60)'],
+      datasets: [{
+        data: bandData,
+        backgroundColor: ['#198754','#0d6efd','#6f42c1','#fd7e14','#dc3545'],
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 12, padding: 10 } },
+        tooltip: { callbacks: {
+          label: ctx => ` ${ctx.label}: ${ctx.parsed} student${ctx.parsed !== 1 ? 's' : ''}`
+        }}
+      }
+    }
+  });
+
+  /* ── 3. Question Difficulty ── */
+  if (qLabels.length > 0) {
+    new Chart(document.getElementById('qChart'), {
+      type: 'bar',
+      data: {
+        labels: qLabels,
+        datasets: [{
+          label: 'Avg score %',
+          data: qAvgPct,
+          backgroundColor: qAvgPct.map(qColor),
+          borderRadius: 4,
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: {
+            label: ctx => ` ${ctx.parsed.x}% average`
+          }}
+        },
+        scales: {
+          x: {
+            beginAtZero: true, max: 100,
+            title: { display: true, text: 'Average score (%)' },
+            ticks: { callback: v => v + '%' }
+          },
+          y: { ticks: { font: { family: 'monospace' } } }
+        }
+      }
+    });
+  }
+})();
+</script>
+
+{% endif %}
+{% endblock %}

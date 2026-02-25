@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Grading Progress{% endblock %}
+{% block content %}
+<h2 class="mb-4">Grading in Progress</h2>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body">
+    <p id="status-text" class="text-muted mb-3">Starting…</p>
+
+    <div class="progress mb-2" style="height:28px">
+      <div id="progress-bar"
+           class="progress-bar progress-bar-striped progress-bar-animated bg-success"
+           role="progressbar" style="width:0%">0%</div>
+    </div>
+    <p id="counts" class="text-muted small mb-4"></p>
+
+    <div id="errors-box" class="d-none mb-3">
+      <p class="text-danger fw-semibold mb-1">Errors:</p>
+      <ul id="errors-list" class="small text-danger mb-0"></ul>
+    </div>
+
+    <div id="done-box" class="d-none">
+      <a href="/results" class="btn btn-primary">View Results</a>
+      <a href="/exams" class="btn btn-outline-secondary ms-2">Back to Exams</a>
+    </div>
+  </div>
+</div>
+
+<script>
+function poll() {
+  fetch('/grade-all/status')
+    .then(r => r.json())
+    .then(data => {
+      const total   = data.total || 1;
+      const done    = data.done + data.failed;
+      const pct     = Math.round(done / total * 100);
+      const bar     = document.getElementById('progress-bar');
+
+      bar.style.width  = pct + '%';
+      bar.textContent  = pct + '%';
+
+      document.getElementById('status-text').textContent = data.running
+        ? `Grading exam ${done} of ${data.total}…`
+        : 'Grading complete!';
+
+      document.getElementById('counts').textContent =
+        `✓ ${data.done} graded   ✗ ${data.failed} failed   Total: ${data.total}`;
+
+      if (data.errors && data.errors.length > 0) {
+        document.getElementById('errors-box').classList.remove('d-none');
+        const list = document.getElementById('errors-list');
+        list.innerHTML = '';
+        data.errors.forEach(e => {
+          const li = document.createElement('li');
+          li.textContent = e;
+          list.appendChild(li);
+        });
+      }
+
+      if (!data.running) {
+        bar.classList.remove('progress-bar-animated');
+        document.getElementById('done-box').classList.remove('d-none');
+      } else {
+        setTimeout(poll, 3000);
+      }
+    })
+    .catch(() => setTimeout(poll, 5000));
+}
+poll();
+</script>
+{% endblock %}

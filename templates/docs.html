@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About — Exam Anonymizer & Grader</title>
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <style>
+    body { font-family: Georgia, serif; color: #1a1a1a; }
+    h1, h2, h3, h4, .sans { font-family: system-ui, sans-serif; }
+    code, pre, .mono { font-family: "Courier New", monospace; }
+
+    .page-header {
+      background: #1a1a2e;
+      color: white;
+      padding: 2.5rem 2rem;
+      margin-bottom: 2rem;
+    }
+    .page-header p { color: #adb5bd; margin: 0; }
+
+    section { margin-bottom: 2.5rem; }
+    h2 {
+      border-bottom: 2px solid #dee2e6;
+      padding-bottom: 0.4rem;
+      margin-bottom: 1rem;
+      font-size: 1.3rem;
+      color: #0d6efd;
+      font-family: system-ui, sans-serif;
+    }
+    h3 { font-size: 1.05rem; margin-top: 1.2rem; margin-bottom: 0.4rem;
+         font-family: system-ui, sans-serif; }
+
+    .callout {
+      border-left: 4px solid #0d6efd;
+      background: #f0f4ff;
+      padding: 0.75rem 1rem;
+      border-radius: 0 6px 6px 0;
+      font-family: system-ui, sans-serif;
+    }
+
+    .stat-card {
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 8px;
+      padding: 1rem;
+      text-align: center;
+      font-family: system-ui, sans-serif;
+    }
+    .stat-card .num { font-size: 2rem; font-weight: 700; color: #0d6efd; line-height: 1; }
+    .stat-card .lbl { font-size: 0.78rem; color: #6c757d; margin-top: 0.2rem; }
+
+    table { font-size: 0.88rem; }
+    th { background: #f8f9fa !important; font-family: system-ui, sans-serif; }
+
+    pre {
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 6px;
+      padding: 1rem;
+      font-size: 0.82rem;
+      white-space: pre-wrap;
+    }
+
+    .flow-step { display: flex; gap: 1rem; align-items: flex-start; margin-bottom: 0.6rem; }
+    .flow-num {
+      background: #0d6efd; color: white; border-radius: 50%;
+      width: 24px; height: 24px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75rem; font-family: system-ui, sans-serif; font-weight: bold;
+    }
+
+    .badge-version {
+      background: #6c757d; color: white;
+      font-size: 0.78rem; padding: 2px 8px;
+      border-radius: 12px; font-family: system-ui, sans-serif;
+    }
+
+    @media print {
+      .no-print { display: none !important; }
+      .page-header { background: #1a1a2e !important;
+        -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .stat-card .num { color: #0d6efd !important;
+        -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      h2 { color: #0d6efd !important;
+        -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      body { font-size: 11pt; }
+      a { color: inherit; text-decoration: none; }
+      section { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Toolbar -->
+<div class="no-print bg-light border-bottom py-2 px-3 d-flex gap-2 align-items-center sticky-top">
+  <a href="/" class="btn btn-outline-secondary btn-sm">← Back to App</a>
+  <button class="btn btn-primary btn-sm ms-2" onclick="window.print()">
+    🖨 Print / Save as PDF
+  </button>
+  <span class="text-muted small ms-3">
+    Print dialog → <strong>Save as PDF</strong> → More settings →
+    <em>Background graphics: on</em> for best output.
+  </span>
+</div>
+
+<!-- Header -->
+<div class="page-header text-center">
+  <h1 class="display-6 fw-bold mb-1" style="font-family:system-ui,sans-serif;">
+    Exam Anonymizer &amp; Grader
+  </h1>
+  <p>System Documentation &mdash; UC Berkeley Haas</p>
+</div>
+
+<div class="container" style="max-width:860px;">
+
+  <!-- ── LIVE STATS ───────────────────────────────────────────── -->
+  <section>
+    <h2>Current State</h2>
+    <div class="row g-3 mb-3">
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="num">{{ total_exams }}</div>
+          <div class="lbl">Exams uploaded</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="num">{{ graded_exams }}</div>
+          <div class="lbl">Exams graded</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="num">{{ ungraded_exams }}</div>
+          <div class="lbl">Awaiting grading</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="num">${{ est_cost }}</div>
+          <div class="lbl">Est. API cost so far</div>
+        </div>
+      </div>
+    </div>
+
+    <table class="table table-bordered mb-0">
+      <tbody>
+        <tr>
+          <th style="width:200px">Exam versions in DB</th>
+          <td>
+            {% if exam_versions %}
+              {% for v in exam_versions %}
+                <span class="badge-version">Version {{ v }}</span>
+              {% endfor %}
+            {% else %}
+              <span class="text-muted">None yet</span>
+            {% endif %}
+          </td>
+        </tr>
+        <tr>
+          <th>Rubric versions saved</th>
+          <td>
+            {% if rubric_versions %}
+              {% for v in rubric_versions %}
+                <span class="badge-version">Version {{ v }}</span>
+              {% endfor %}
+              <span class="text-muted small ms-2">({{ rubric_file_count }} file{{ 's' if rubric_file_count != 1 else '' }} on disk)</span>
+            {% else %}
+              <span class="text-muted">None yet</span>
+            {% endif %}
+          </td>
+        </tr>
+        <tr>
+          <th>Batches uploaded</th>
+          <td>
+            {% if batches %}
+              {% for b in batches %}Batch {{ b }}{% if not loop.last %}, {% endif %}{% endfor %}
+            {% else %}
+              <span class="text-muted">None yet</span>
+            {% endif %}
+          </td>
+        </tr>
+        <tr>
+          <th>Upload folder size</th>
+          <td>{{ upload_mb }} MB (individual exam PDFs)</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── WHAT IT IS ───────────────────────────────────────────── -->
+  <section>
+    <h2>What It Is</h2>
+    <div class="callout mb-3">
+      A <strong>privacy-first, locally-run web application</strong> that automates the grading
+      of handwritten student exams using Claude AI. Runs entirely on your laptop —
+      no cloud database, no external services except the Anthropic API for vision grading.
+      <strong>Student identities are never exposed to AI.</strong>
+    </div>
+    <p>
+      Built for GSIs and TAs who need to grade large volumes of handwritten exams quickly
+      and consistently while maintaining FERPA-compliant anonymization during the AI grading step.
+    </p>
+  </section>
+
+  <!-- ── PRIVACY ──────────────────────────────────────────────── -->
+  <section>
+    <h2>Core Privacy Architecture</h2>
+    <p>The central design principle: <strong>student names never leave your machine.</strong></p>
+    <ul>
+      <li>Every exam is assigned a random 8-character anonymous ID (e.g., <code>QX7KR2DA</code>) at upload time.</li>
+      <li>Only the anonymous ID + exam page images + rubric are sent to Claude.</li>
+      <li>The name↔ID mapping lives solely in a local SQLite database on this machine.</li>
+      <li>Results are displayed by anonymous ID; names are only revealed on-demand via a toggle.</li>
+      <li>The exam cover page (page 0) is <strong>never</strong> sent during grading — only answer pages.</li>
+    </ul>
+  </section>
+
+  <!-- ── TECH STACK ───────────────────────────────────────────── -->
+  <section>
+    <h2>Tech Stack</h2>
+    <table class="table table-bordered">
+      <thead><tr><th>Layer</th><th>Technology</th></tr></thead>
+      <tbody>
+        <tr><td>Web framework</td><td>Flask (Python) — runs locally on port 5000</td></tr>
+        <tr><td>Database</td><td>SQLite — single file, no server process</td></tr>
+        <tr><td>PDF splitting</td><td>pypdf — PdfReader / PdfWriter, in-memory</td></tr>
+        <tr><td>PDF page rendering</td><td>pypdfium2 — renders pages to PNG at 2× scale</td></tr>
+        <tr><td>AI grading model</td><td>Anthropic <code>claude-sonnet-4-6</code> (vision)</td></tr>
+        <tr><td>AI name extraction</td><td>Anthropic <code>claude-haiku-4-5</code> (cover page vision)</td></tr>
+        <tr><td>UI framework</td><td>Bootstrap 5 — served from CDN</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── DATA FLOW ────────────────────────────────────────────── -->
+  <section>
+    <h2>Data Flow — End to End</h2>
+
+    <div class="flow-step"><div class="flow-num">1</div>
+      <div><strong>Batch PDF uploaded.</strong> All student exams concatenated into one file, in order.</div></div>
+
+    <div class="flow-step"><div class="flow-num">2</div>
+      <div><strong>Split by fixed page count — entirely in memory.</strong>
+      No file handles held open (avoids Windows file-locking), no Claude API calls, no cost.</div></div>
+
+    <div class="flow-step"><div class="flow-num">3</div>
+      <div><strong>Name extraction + review page.</strong> Claude Haiku reads each cover page (page 0)
+      and pre-fills student name and SID. A thumbnail and full-page modal viewer let you verify
+      all pages are attached and correct any misreads before confirming. Roster fuzzy-match
+      available if a class list has been uploaded.</div></div>
+
+    <div class="flow-step"><div class="flow-num">4</div>
+      <div><strong>Saved to SQLite.</strong> Each exam gets a random <code>anon_id</code>.
+      The student name is stored locally only — never included in any API call.</div></div>
+
+    <div class="flow-step"><div class="flow-num">5</div>
+      <div><strong>Grade All triggered.</strong> A background thread is spawned so the browser tab
+      stays usable. A live progress bar polls <code>/grade-all/status</code> every 3 seconds.</div></div>
+
+    <div class="flow-step"><div class="flow-num">6</div>
+      <div><strong>Per-exam grading.</strong> Pages 1+ rendered as PNG at 2× scale and sent to
+      Claude Sonnet as images. The rubric PDF is sent as a native base64 document block
+      (preserves tables and charts). Cover page always skipped.</div></div>
+
+    <div class="flow-step"><div class="flow-num">7</div>
+      <div><strong>Claude returns structured JSON.</strong> Question-level scores, feedback,
+      total, letter grade, and overall summary. Saved to the DB under <code>anon_id</code> only.</div></div>
+
+    <div class="flow-step"><div class="flow-num">8</div>
+      <div><strong>Results page.</strong> Grades shown by anon_id. Toggle reveals student names locally.
+      Collapsible detail rows allow per-question score adjustment (saved via AJAX, no page reload).
+      <strong>Summary CSV</strong> exports one row per student; <strong>Detailed CSV</strong> exports
+      one row per student with a column per question (earned, max, feedback).
+      <strong>Per-student printable report</strong> opens in a new tab — clean print layout with
+      score card, progress bar, color-coded question breakdown, and overall feedback.</div></div>
+  </section>
+
+  <!-- ── FEATURES ─────────────────────────────────────────────── -->
+  <section>
+    <h2>Key Features</h2>
+
+    <h3>Upload &amp; Splitting</h3>
+    <ul>
+      <li>Upload one combined PDF → specify pages-per-exam → splits instantly (no API cost).</li>
+      <li>Single-exam upload: set pages-per-exam equal to the exam page count.</li>
+      <li>Name assignment page shows a cover-page thumbnail per exam and a full modal page viewer.</li>
+      <li>Claude Haiku reads each cover page to pre-fill student name and SID automatically.</li>
+      <li>Roster fuzzy-match confirms identity against an uploaded class list (local only, no API).</li>
+      <li>Names optional at upload time; editable anytime via each exam's detail page.</li>
+    </ul>
+
+    <h3>Rubric Management</h3>
+    <ul>
+      <li>Upload rubric as PDF or DOCX, or type it manually.</li>
+      <li><strong>PDF rubrics sent natively</strong> to Claude as base64 document blocks —
+          tables, charts, and formatting are fully preserved (not lost to text extraction).</li>
+      <li>Multiple rubric versions ({{ rubric_versions|join(', ') if rubric_versions else 'e.g. A, B' }}) for different exam variants.</li>
+      <li>Rubrics stored permanently on disk; can be deleted or replaced at any time.</li>
+    </ul>
+
+    <h3>Vision Grading Engine</h3>
+    <ul>
+      <li>Exam pages rendered as PNG and sent directly to Claude Sonnet — works on handwritten answers with no OCR pre-processing required.</li>
+      <li>Cover page (page 0) always skipped; answer pages only sent to Claude.</li>
+      <li>Background thread with live progress bar — browser stays usable during long grading runs.</li>
+      <li>Filter by version and batch for targeted re-grading.</li>
+      <li>Per-exam re-grade and clear-grade buttons; bulk clear-all-grades option.</li>
+    </ul>
+
+    <h3>Multiple Choice Accuracy</h3>
+    <p>System prompt includes explicit MC instructions to improve accuracy on handwritten exams:</p>
+    <ul>
+      <li>Options listed vertically (A top → D bottom).</li>
+      <li>Claude reads the actual letter shape — B has two bumps on the right; D has one large curve.</li>
+      <li>No partial credit on MC; handles ambiguous double-marks by using the most deliberate one.</li>
+    </ul>
+
+    <h3>Per-Exam Review Page</h3>
+    <ul>
+      <li>Page-by-page viewer for every uploaded exam.</li>
+      <li>Cover labeled "not sent to Claude"; answer pages labeled "sent to Claude for grading."</li>
+      <li>Editable student name, re-grade, and clear-grade controls per exam.</li>
+    </ul>
+
+    <h3>Results &amp; Export</h3>
+    <ul>
+      <li>Results page filterable by version and batch.</li>
+      <li>Student names hidden by default, revealed with a local-only toggle.</li>
+      <li><strong>Grade adjustment:</strong> expand any row's Details panel to edit per-question
+          earned points inline; changes update the summary row live and save via AJAX.</li>
+      <li><strong>Summary CSV:</strong> one row per student — Anon ID, Name, SID, Version, Batch,
+          Score, Percentage, Letter Grade, Overall Feedback.</li>
+      <li><strong>Detailed CSV:</strong> same fixed columns plus three columns per question
+          (Earned, Max, Feedback) — pads with empty strings for questions absent from a given exam.</li>
+      <li><strong>Per-student report:</strong> printable HTML page per student with score card,
+          progress bar, color-coded question breakdown, and overall feedback. Print-ready via browser.</li>
+      <li><strong>Score normalization:</strong> if Claude's reported <code>total_possible</code>
+          is within 0.5 of a whole number (e.g. 18 × 3.333334 = 60.000012 → 60), both totals are
+          scaled to that integer so scores display cleanly. Earned is hard-capped at possible.</li>
+    </ul>
+  </section>
+
+  <!-- ── DB SCHEMA ────────────────────────────────────────────── -->
+  <section>
+    <h2>Database Schema</h2>
+<pre>-- Rubrics: one per exam version; stores path to original PDF/DOCX on disk
+rubrics (
+  id               INTEGER PRIMARY KEY,
+  version          TEXT,          -- "A", "B", etc.
+  content          TEXT,          -- extracted text (fallback / display)
+  rubric_file_path TEXT,          -- path to original file → sent natively to Claude
+  created_at       TIMESTAMP
+)
+
+-- Exams: the name↔ID mapping never leaves this table
+exams (
+  id           INTEGER PRIMARY KEY,
+  anon_id      TEXT UNIQUE,   -- random 8-char ID — the only identifier sent to Claude
+  student_name TEXT,          -- stored locally ONLY, never sent to Claude
+  student_sid  TEXT,          -- student ID number — stored locally ONLY
+  version      TEXT,          -- exam version (A, B, …)
+  batch        INTEGER,       -- batch number for grouping
+  file_path    TEXT,          -- path to individual exam PDF on disk
+  uploaded_at  TIMESTAMP,
+  graded_at    TIMESTAMP,
+  grade_data   TEXT           -- JSON blob: scores, feedback, totals, letter grade
+)
+
+-- Roster: class list for fuzzy name/SID matching at upload time (local only)
+roster (
+  id         INTEGER PRIMARY KEY,
+  first_name TEXT,
+  last_name  TEXT,
+  sid        TEXT
+)</pre>
+  </section>
+
+  <!-- ── FILE LAYOUT ──────────────────────────────────────────── -->
+  <section>
+    <h2>File Storage Layout</h2>
+<pre>exam_grader/
+├── grader.py                # Flask app — all routes and business logic
+├── requirements.txt         # flask, anthropic, pypdf, pypdfium2, pdfplumber, python-docx
+├── data/
+│   ├── exam_grader.db       # SQLite: all name↔ID mappings + grade data
+│   ├── uploads/             # Individual exam PDFs named by anon_id  ({{ upload_mb }} MB)
+│   └── rubrics/             # Original rubric files — {{ rubric_file_count }} file{{ 's' if rubric_file_count != 1 else '' }} on disk
+└── templates/
+    ├── base.html             # Bootstrap navbar + layout shell
+    ├── index.html            # Dashboard (counts, quick links)
+    ├── setup.html            # Rubric upload / manage
+    ├── view_rubric.html      # Rubric content viewer
+    ├── upload_batch.html     # PDF upload + split form
+    ├── batch_review.html     # Name assignment + thumbnail review
+    ├── exams.html            # Anonymized exam list + bulk actions
+    ├── exam_detail.html      # Per-exam page viewer + name editor
+    ├── grade_progress.html   # Live grading progress bar
+    ├── results.html          # Grade results, adjustment, and exports
+    ├── student_report.html   # Per-student printable report
+    ├── roster.html           # Roster upload and preview
+    └── docs.html             # This page</pre>
+  </section>
+
+  <!-- ── COST ─────────────────────────────────────────────────── -->
+  <section>
+    <h2>Cost Profile</h2>
+    <table class="table table-bordered">
+      <thead><tr><th>Item</th><th>Detail</th><th>Rate / Estimate</th></tr></thead>
+      <tbody>
+        <tr><td>Grading model</td><td>claude-sonnet-4-6</td><td>$3 / $15 per 1M tokens (in/out)</td></tr>
+        <tr><td>Per exam (12 pages, vision)</td><td>11 answer pages rendered at 2× scale as PNG</td><td>~$0.09 – $0.15</td></tr>
+        <tr><td>Exams graded so far</td><td>{{ graded_exams }} exam{{ 's' if graded_exams != 1 else '' }}</td>
+            <td><strong>~${{ est_cost }} estimated</strong></td></tr>
+        <tr><td>Batch splitting</td><td>In-memory, no API calls</td><td>$0</td></tr>
+        <tr><td>Name extraction (per exam)</td><td>claude-haiku-4-5 reads cover page (page 0) for name &amp; SID</td><td>~$0.001 – $0.002</td></tr>
+        <tr><td>Rubric fidelity</td><td>PDF sent as native document block each grading call</td><td>Included in per-exam cost</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── WHAT IT IS NOT ───────────────────────────────────────── -->
+  <section>
+    <h2>What It Is Not</h2>
+    <ul>
+      <li><strong>Not a cloud service</strong> — all data (DB, PDFs, rubrics) stays on your machine.</li>
+      <li><strong>Not a real-time system</strong> — grading is batch, runs in a background thread.</li>
+      <li><strong>Not OCR-dependent</strong> — grading sends page images directly; no text extraction step required.</li>
+      <li><strong>Not identity-aware at the AI layer</strong> — Claude never sees a student name during any grading call.</li>
+    </ul>
+  </section>
+
+  <hr class="mt-4">
+  <p class="text-muted small text-center pb-4 sans">
+    Exam Anonymizer &amp; Grader — UC Berkeley Haas —
+    page generated live from local database
+  </p>
+
+</div>
+</body>
+</html>

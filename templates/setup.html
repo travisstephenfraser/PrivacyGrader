@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Rubrics — Exam Grader{% endblock %}
+{% block content %}
+<h2 class="mb-4">Rubric Setup</h2>
+<p class="text-muted">Create one rubric per exam version. Rubrics are stored locally and sent to Claude alongside each exam.</p>
+
+{% if rubrics %}
+<h5>Existing Rubrics</h5>
+<table class="table table-bordered mb-4">
+  <thead class="table-light"><tr><th>Version</th><th>Last updated</th><th></th></tr></thead>
+  <tbody>
+    {% for r in rubrics %}
+    <tr>
+      <td><span class="badge bg-secondary fs-6">Version {{ r.version }}</span></td>
+      <td>{{ r.updated }}</td>
+      <td class="d-flex gap-2">
+        <a href="/setup/view/{{ r.version }}" class="btn btn-sm btn-outline-secondary">View / Edit</a>
+        <form method="POST" action="/setup/delete/{{ r.version }}"
+              onsubmit="return confirm('Delete rubric for Version {{ r.version }}? This cannot be undone.')">
+          <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body">
+    <h5 class="card-title">Add / Replace Rubric</h5>
+    <form method="POST" enctype="multipart/form-data">
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Exam Version <span class="text-danger">*</span></label>
+        <input type="text" name="version" class="form-control" placeholder="e.g. a or b"
+               maxlength="5" required style="max-width:120px">
+        <div class="form-text">Matches the version you select when uploading exams.</div>
+      </div>
+
+      <!-- Option 1: upload file -->
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Upload Rubric File</label>
+        <input type="file" name="rubric_file" class="form-control" accept=".pdf,.docx,.doc"
+               onchange="handleFileUpload(this)">
+        <div class="form-text">Upload a <strong>.docx</strong> or <strong>.pdf</strong> answer key. Text will be extracted automatically.</div>
+      </div>
+
+      <div class="text-center text-muted my-2" id="orDivider">— or type it manually below —</div>
+
+      <!-- Option 2: type manually -->
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Rubric Content</label>
+        <textarea name="content" class="form-control font-monospace" rows="10" id="rubricText"
+                  placeholder="Describe each question, the correct answer, and the point breakdown.
+Example:
+Q1 (10 pts): Define opportunity cost.
+  - Full credit: correct definition with example (10 pts)
+  - Partial: correct definition, no example (6 pts)
+  - No credit: incorrect (0 pts)"></textarea>
+        <div class="form-text">If you upload a file above, this field is ignored.</div>
+      </div>
+
+      <button type="submit" class="btn btn-primary">Save Rubric</button>
+    </form>
+  </div>
+</div>
+
+<div class="d-flex justify-content-between mt-4">
+  <a href="/" class="btn btn-secondary">← Back</a>
+  <a href="/upload-batch" class="btn btn-primary">Next: Upload Exams →</a>
+</div>
+{% endblock %}

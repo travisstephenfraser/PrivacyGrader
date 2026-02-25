@@ -1,0 +1,18 @@
+# Core web framework
+flask>=3.0.0
+
+# Anthropic Claude SDK
+anthropic>=0.40.0
+
+# PDF text extraction (reading)
+pdfplumber>=0.11.0
+
+# PDF reading + writing — needed to split batch PDFs into individual exams
+pypdf>=4.0.0
+
+# Word document reading — for .docx rubric uploads
+python-docx>=1.1.0
+
+# pdfplumber dependencies (pulled in automatically, pinned for stability)
+pdfminer.six>=20221105
+Pillow>=10.0.0

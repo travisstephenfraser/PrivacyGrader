@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Upload Batch PDF{% endblock %}
+{% block content %}
+<h2 class="mb-1">Upload Batch PDF</h2>
+<p class="text-muted mb-4">
+  Upload a single PDF with all exams back-to-back. The app splits it by page count
+  instantly — then you assign student names on the next screen.
+</p>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body">
+    <form method="POST" enctype="multipart/form-data" id="batchForm">
+
+      <div class="row g-3 mb-4">
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">Exam Version <span class="text-danger">*</span></label>
+          <input type="text" name="version" class="form-control" placeholder="e.g. a or b"
+                 maxlength="5" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">Batch Number <span class="text-danger">*</span></label>
+          <select name="batch" class="form-select">
+            <option value="1">Batch 1</option>
+            <option value="2">Batch 2</option>
+            <option value="3">Batch 3</option>
+            <option value="4">Batch 4</option>
+            <option value="5">Batch 5</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">Pages per exam <span class="text-danger">*</span></label>
+          <input type="number" name="pages_per_exam" class="form-control"
+                 min="1" max="100" placeholder="e.g. 8" required>
+          <div class="form-text">Pages in each individual exam.</div>
+        </div>
+      </div>
+
+      <div class="mb-4">
+        <label class="form-label fw-semibold">Batch PDF <span class="text-danger">*</span></label>
+        <input type="file" name="batch_pdf" class="form-control" accept=".pdf" required>
+        <div class="form-text">
+          All student exams concatenated into one PDF, in order.
+        </div>
+      </div>
+
+      <div class="d-flex align-items-center gap-3 flex-wrap">
+        <button type="submit" class="btn btn-primary px-4">Upload &amp; Split</button>
+        <span id="spinner" class="text-muted d-none">
+          <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+          Splitting PDF &amp; extracting names — please wait…
+        </span>
+      </div>
+
+    </form>
+  </div>
+</div>
+
+<div class="d-flex justify-content-between mt-4">
+  <a href="/setup" class="btn btn-secondary">← Back</a>
+  <a href="/exams" class="btn btn-primary">Next: View Exams →</a>
+</div>
+
+<script>
+  document.getElementById('batchForm').addEventListener('submit', function () {
+    document.getElementById('spinner').classList.remove('d-none');
+    // Don't disable the submit button here — that can block submission in some browsers
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Exam Grader{% endblock %}
+{% block content %}
+<h2 class="mb-4">Dashboard</h2>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card text-center border-0 shadow-sm">
+      <div class="card-body py-4">
+        <h1 class="display-4 fw-bold text-primary">{{ total }}</h1>
+        <p class="text-muted mb-0">Exams uploaded</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card text-center border-0 shadow-sm">
+      <div class="card-body py-4">
+        <h1 class="display-4 fw-bold text-success">{{ graded }}</h1>
+        <p class="text-muted mb-0">Graded</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card text-center border-0 shadow-sm">
+      <div class="card-body py-4">
+        <h1 class="display-4 fw-bold text-warning">{{ ungraded }}</h1>
+        <p class="text-muted mb-0">Awaiting grading</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <h5 class="card-title">🔒 Privacy Guarantee</h5>
+    <p class="mb-0">Student names are stored <strong>only on this machine</strong>. Claude receives anonymous IDs, exam text, and rubric only — never student identities.</p>
+  </div>
+</div>
+
+<h5 class="mb-3">Quick Start</h5>
+<div class="row g-2">
+  <div class="col-md-3">
+    <a href="/setup" class="btn btn-outline-primary w-100">
+      1️⃣ Set up rubric
+      {% if versions_with_rubrics %}
+        <span class="badge bg-success ms-1">✓</span>
+      {% endif %}
+    </a>
+  </div>
+  <div class="col-md-3">
+    <a href="/upload-batch" class="btn btn-outline-primary w-100">2️⃣ Upload exams</a>
+  </div>
+  <div class="col-md-3">
+    <a href="/exams" class="btn btn-outline-primary w-100">3️⃣ Grade exams</a>
+  </div>
+  <div class="col-md-3">
+    <a href="/results" class="btn btn-outline-primary w-100">4️⃣ View results</a>
+  </div>
+</div>
+
+<div class="d-flex justify-content-end mt-4">
+  <a href="/setup" class="btn btn-primary">Next: Set up Rubric →</a>
+</div>
+{% endblock %}

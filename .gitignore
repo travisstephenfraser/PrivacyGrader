@@ -1,0 +1,17 @@
+# Student data — never commit
+data/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Environment
+.env
+*.env
+
+# OS
+.DS_Store
+Thumbs.db

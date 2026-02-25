@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+{% block title %}Name Assignment — Upload{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h2 class="mb-0">Assign Student Names</h2>
+    <p class="text-muted mb-0 mt-1">
+      Version <strong>{{ version }}</strong> · Batch <strong>{{ batch }}</strong> ·
+      <strong>{{ exams|length }}</strong> exam{{ 's' if exams|length != 1 else '' }} split from PDF
+    </p>
+  </div>
+  <a href="/upload-batch" class="btn btn-outline-secondary btn-sm">← Start over</a>
+</div>
+
+<div class="alert alert-info py-2 mb-3 small">
+  <strong>Tip:</strong> Claude auto-extracted names &amp; SIDs from each cover page — verify and correct as needed.
+  Click a thumbnail or <em>Review</em> to confirm all pages are attached.
+  Names and SIDs are stored locally only and <strong>never</strong> sent to Claude for grading.
+</div>
+
+{% if roster_count and roster_count > 0 %}
+<div class="card border-0 shadow-sm mb-3 border-start border-4 border-success">
+  <div class="card-body py-2 px-3 d-flex align-items-center gap-3 flex-wrap">
+    <div>
+      <span class="badge bg-success">{{ roster_count }} students in roster</span>
+      <span class="text-muted small ms-2">Fuzzy-match OCR names/SIDs against your class roster — runs locally, no API call.</span>
+    </div>
+    <button type="button" class="btn btn-success btn-sm" id="matchRosterBtn" onclick="matchRoster()">
+      Match against Roster
+    </button>
+    <span id="matchSummary" class="text-muted small"></span>
+  </div>
+</div>
+{% endif %}
+
+<form method="POST" action="/upload-batch/confirm/{{ review_id }}" id="confirmForm">
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-body p-0">
+      <table class="table table-hover mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th style="width:40px">#</th>
+            <th style="width:90px">Cover</th>
+            <th>Student Name</th>
+            <th style="width:160px">SID</th>
+            <th style="width:100px" class="text-muted small">Roster Match</th>
+            <th style="width:110px" class="text-muted small">Pages in PDF</th>
+            <th style="width:90px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for exam in exams %}
+          <tr>
+            <td class="text-muted">{{ loop.index }}</td>
+
+            <!-- Thumbnail of cover page (page 0) -->
+            <td>
+              <img src="/upload-batch/preview/{{ review_id }}/{{ loop.index0 }}/0?thumb=1"
+                   loading="lazy"
+                   style="height:70px; width:auto; cursor:pointer; border-radius:4px; border:1px solid #dee2e6;"
+                   onclick="openReview({{ loop.index0 }}, {{ exam.page_count }}, {{ loop.index }})"
+                   title="Click to review all pages"
+                   alt="Cover page">
+            </td>
+
+            <!-- Name input (pre-filled by Claude) -->
+            <td>
+              <input type="text" name="name_{{ loop.index0 }}"
+                     class="form-control form-control-sm"
+                     value="{{ exam.name }}"
+                     placeholder="Leave blank to enter later">
+            </td>
+
+            <!-- SID input (pre-filled by Claude) -->
+            <td>
+              <input type="text" name="sid_{{ loop.index0 }}"
+                     class="form-control form-control-sm font-monospace"
+                     value="{{ exam.sid }}"
+                     placeholder="SID">
+            </td>
+
+            <!-- Roster match confidence badge -->
+            <td><span id="conf-{{ loop.index0 }}" class="badge bg-secondary" style="font-size:.75rem;"></span></td>
+
+            <!-- Page range -->
+            <td class="text-muted font-monospace small">{{ exam.pages }}</td>
+
+            <!-- Review button -->
+            <td>
+              <button type="button" class="btn btn-sm btn-outline-secondary"
+                      onclick="openReview({{ loop.index0 }}, {{ exam.page_count }}, {{ loop.index }})">
+                Review
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div class="d-flex gap-2">
+      <button type="submit" class="btn btn-success px-4">
+        ✓ Save {{ exams|length }} Exam{{ 's' if exams|length != 1 else '' }}
+      </button>
+      <a href="/upload-batch" class="btn btn-outline-danger">
+        ✗ Discard &amp; Start Over
+      </a>
+    </div>
+    <a href="/exams" class="btn btn-primary">Next: View Exams →</a>
+  </div>
+</form>
+
+<!-- ── Page review modal ─────────────────────────────────────── -->
+<div class="modal fade" id="reviewModal" tabindex="-1" aria-labelledby="reviewModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+
+      <div class="modal-header py-2">
+        <h5 class="modal-title" id="reviewModalLabel">Exam Review</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Page navigation buttons -->
+        <div id="pageNavBtns" class="d-flex flex-wrap gap-1 mb-3"></div>
+
+        <!-- Page image -->
+        <div class="text-center">
+          <img id="modalImg" src="" class="img-fluid border rounded shadow-sm"
+               style="max-height:78vh" alt="Exam page">
+          <p id="modalPageLabel" class="text-muted small mt-2 mb-0"></p>
+        </div>
+      </div>
+
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-outline-secondary btn-sm"
+                id="prevPageBtn" onclick="stepPage(-1)">← Prev</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm"
+                id="nextPageBtn" onclick="stepPage(1)">Next →</button>
+        <button type="button" class="btn btn-secondary btn-sm ms-3"
+                data-bs-dismiss="modal">Close</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const reviewId = "{{ review_id }}";
+let activeExam  = 0;
+let activePage  = 0;
+let totalPages  = 0;
+let modalInst   = null;
+
+function openReview(examIndex, pageCount, examNum) {
+  activeExam = examIndex;
+  totalPages = pageCount;
+  activePage = 0;
+
+  document.getElementById('reviewModalLabel').textContent =
+    `Exam #${examNum} — ${pageCount} page${pageCount !== 1 ? 's' : ''}`;
+
+  buildPageNav();
+  loadPage(0);
+
+  if (!modalInst) {
+    modalInst = new bootstrap.Modal(document.getElementById('reviewModal'));
+  }
+  modalInst.show();
+}
+
+function buildPageNav() {
+  const nav = document.getElementById('pageNavBtns');
+  nav.innerHTML = '';
+  for (let i = 0; i < totalPages; i++) {
+    const btn = document.createElement('button');
+    btn.type      = 'button';
+    btn.className = 'btn btn-sm ' + (i === 0 ? 'btn-secondary' : 'btn-outline-secondary');
+    btn.textContent = i === 0 ? 'Cover' : `Page ${i + 1}`;
+    btn.dataset.page = i;
+    btn.onclick   = () => loadPage(i);
+    nav.appendChild(btn);
+  }
+}
+
+function loadPage(pageNum) {
+  activePage = pageNum;
+  document.getElementById('modalImg').src =
+    `/upload-batch/preview/${reviewId}/${activeExam}/${pageNum}`;
+  document.getElementById('modalPageLabel').textContent =
+    pageNum === 0
+      ? `Cover page (page 1 of ${totalPages})`
+      : `Page ${pageNum + 1} of ${totalPages}`;
+
+  document.querySelectorAll('#pageNavBtns button').forEach((btn, i) => {
+    btn.className = 'btn btn-sm ' + (i === pageNum ? 'btn-secondary' : 'btn-outline-secondary');
+  });
+
+  document.getElementById('prevPageBtn').disabled = pageNum === 0;
+  document.getElementById('nextPageBtn').disabled = pageNum === totalPages - 1;
+}
+
+function stepPage(delta) {
+  const next = activePage + delta;
+  if (next >= 0 && next < totalPages) loadPage(next);
+}
+
+// ── Roster matching ──────────────────────────────────────────────────────────
+function matchRoster() {
+  const btn = document.getElementById('matchRosterBtn');
+  if (!btn) return;
+  btn.disabled = true;
+  btn.textContent = 'Matching…';
+
+  fetch(`/upload-batch/review/${reviewId}/match-roster`, {method: 'POST'})
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) {
+        alert('Match error: ' + data.error);
+        btn.disabled = false;
+        btn.textContent = 'Match against Roster';
+        return;
+      }
+      const tierColor = {high: 'success', medium: 'warning', low: 'danger'};
+      let high = 0;
+      data.results.forEach(m => {
+        const nameEl = document.querySelector(`[name="name_${m.exam_index}"]`);
+        const sidEl  = document.querySelector(`[name="sid_${m.exam_index}"]`);
+        const badge  = document.getElementById(`conf-${m.exam_index}`);
+        if (nameEl) nameEl.value = m.name;
+        if (sidEl)  sidEl.value  = m.sid;
+        if (badge) {
+          const pct = Math.round(m.score * 100);
+          badge.className = `badge bg-${tierColor[m.tier] || 'secondary'}`;
+          badge.textContent = `${pct}%`;
+          badge.title = `${m.tier.charAt(0).toUpperCase() + m.tier.slice(1)} confidence`;
+        }
+        if (m.score >= 0.85) high++;
+      });
+      const summary = document.getElementById('matchSummary');
+      if (summary) {
+        summary.textContent = `${high} of ${data.results.length} matched at ≥85% confidence`;
+      }
+      btn.disabled = false;
+      btn.textContent = 'Re-match against Roster';
+    })
+    .catch(err => {
+      alert('Network error: ' + err);
+      btn.disabled = false;
+      btn.textContent = 'Match against Roster';
+    });
+}
+</script>
+{% endblock %}

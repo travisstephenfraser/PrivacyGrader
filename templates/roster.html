@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Roster — Exam Grader{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h2 class="mb-0">Class Roster</h2>
+    <p class="text-muted mb-0 mt-1">Upload once; used locally to correct OCR name/SID errors.</p>
+  </div>
+</div>
+
+<div class="alert alert-success py-2 mb-4 small">
+  <strong>🔒 Privacy guarantee:</strong> Roster data is stored in the local SQLite database only.
+  It is <strong>never</strong> sent to Claude or any external API — matching runs entirely on your machine.
+</div>
+
+<div class="row g-4">
+
+  <!-- Upload card -->
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white fw-semibold">Upload Roster CSV</div>
+      <div class="card-body">
+        <p class="text-muted small mb-3">
+          CSV format: <code>first_name, last_name, sid</code> (header row optional, SID optional).<br>
+          Uploading a new file <strong>replaces</strong> the existing roster.
+        </p>
+        <form method="POST" enctype="multipart/form-data" action="/roster">
+          <div class="mb-3">
+            <label for="rosterFile" class="form-label">Select CSV file</label>
+            <input type="file" class="form-control" id="rosterFile" name="roster_csv" accept=".csv,text/csv" required>
+          </div>
+          <button type="submit" class="btn btn-primary">Upload Roster</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status card -->
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
+        Current Roster
+        {% if count > 0 %}
+          {% if show_names %}
+            <a href="{{ url_for('roster') }}" class="btn btn-outline-secondary btn-sm">🙈 Hide Names</a>
+          {% else %}
+            <a href="{{ url_for('roster', show_names='1') }}" class="btn btn-outline-primary btn-sm">👁 Reveal Names</a>
+          {% endif %}
+        {% endif %}
+      </div>
+      <div class="card-body">
+        {% if count == 0 %}
+          <p class="text-muted mb-0">No roster loaded yet.</p>
+        {% else %}
+          <p class="mb-2">
+            <span class="badge bg-success fs-6">{{ count }} student{{ 's' if count != 1 else '' }}</span>
+            loaded
+          </p>
+          {% if preview %}
+          <table class="table table-sm table-bordered mb-3">
+            <thead class="table-light">
+              <tr><th>First Name</th><th>Last Name</th><th>SID</th></tr>
+            </thead>
+            <tbody>
+              {% for row in preview %}
+              <tr>
+                <td>{% if show_names %}{{ row.first_name }}{% else %}<span class="text-muted fst-italic">Hidden</span>{% endif %}</td>
+                <td>{% if show_names %}{{ row.last_name }}{% else %}<span class="text-muted fst-italic">Hidden</span>{% endif %}</td>
+                <td class="font-monospace">{% if show_names %}{{ row.sid or '—' }}{% else %}<span class="text-muted fst-italic">Hidden</span>{% endif %}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% if count > 5 %}
+            <p class="text-muted small">…and {{ count - 5 }} more.</p>
+          {% endif %}
+          {% endif %}
+
+          <form method="POST" action="/roster/clear"
+                onsubmit="return confirm('Clear the entire roster?')">
+            <button type="submit" class="btn btn-outline-danger btn-sm">Clear Roster</button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

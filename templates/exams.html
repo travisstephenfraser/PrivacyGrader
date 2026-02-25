@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Exams — Exam Grader{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2 class="mb-0">Uploaded Exams</h2>
+  <a href="/upload-batch" class="btn btn-outline-primary btn-sm">+ Upload more</a>
+</div>
+
+<!-- Danger zone -->
+<div class="card border-danger mb-4">
+  <div class="card-header bg-danger bg-opacity-10 text-danger fw-semibold">Danger Zone</div>
+  <div class="card-body d-flex flex-column gap-3">
+
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div>
+        <p class="fw-semibold mb-0">Purge Grade Data</p>
+        <p class="text-muted small mb-0">Clears saved grades so all exams can be re-graded. Does not delete exam PDFs or rubrics.</p>
+      </div>
+      <form method="POST" action="/clear-all-grades"
+            onsubmit="return confirm('Clear ALL saved grades? This cannot be undone. Exams and rubrics are kept.')">
+        <button type="submit" class="btn btn-danger btn-sm">Clear All Grades</button>
+      </form>
+    </div>
+
+    <hr class="my-0">
+
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div>
+        <p class="fw-semibold mb-0">Remove All Exams</p>
+        <p class="text-muted small mb-0">Permanently deletes every exam record and its PDF from disk. Rubrics and roster are kept.</p>
+      </div>
+      <form method="POST" action="/exams/delete-all"
+            onsubmit="return confirm('Remove ALL exams? This permanently deletes every exam PDF and cannot be undone.')">
+        <button type="submit" class="btn btn-danger btn-sm">Remove All Exams</button>
+      </form>
+    </div>
+
+  </div>
+</div>
+
+<!-- Bulk action bar -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <div class="row g-3">
+
+      <!-- Grade all -->
+      <div class="col-md-6">
+        <p class="fw-semibold mb-2">Grade All</p>
+        {% if missing_rubric_versions %}
+        <div class="alert alert-warning py-2 px-3 mb-2 small">
+          <strong>⚠ Missing rubric for Version{{ 's' if missing_rubric_versions|length > 1 else '' }}:
+          {{ missing_rubric_versions | join(', ') }}</strong> — grading will fail for these exams.
+          <a href="/setup" class="alert-link">Set up rubric →</a>
+        </div>
+        {% endif %}
+        <form method="POST" action="/grade-all" class="d-flex gap-2 align-items-end flex-wrap">
+          <div>
+            <select name="version" class="form-select form-select-sm" style="width:120px">
+              <option value="">All versions</option>
+              <option value="A">Version A</option>
+              <option value="B">Version B</option>
+            </select>
+          </div>
+          <div>
+            <select name="batch" class="form-select form-select-sm" style="width:120px">
+              <option value="">All batches</option>
+              <option value="1">Batch 1</option>
+              <option value="2">Batch 2</option>
+              <option value="3">Batch 3</option>
+              <option value="4">Batch 4</option>
+              <option value="5">Batch 5</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-success btn-sm"
+                  onclick="return confirm('Grade all OCR\'d exams? This will call the Claude API.')">
+            ▶ Grade All
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{% if exams %}
+<table class="table table-hover align-middle">
+  <thead class="table-light">
+    <tr>
+      <th>Anon ID</th>
+      <th>Version</th>
+      <th>Batch</th>
+      <th>Uploaded</th>
+      <th>Graded</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for e in exams %}
+    <tr>
+      <td><span class="anon-id">{{ e.anon_id }}</span></td>
+      <td>
+        <span class="badge bg-secondary">Version {{ e.version }}</span>
+        {% if e.version in rubric_versions %}
+          <span class="badge bg-success ms-1" title="Rubric found for Version {{ e.version }}">✓ Rubric</span>
+        {% else %}
+          <span class="badge bg-danger ms-1" title="No rubric found for Version {{ e.version }} — grading will fail">✗ No Rubric</span>
+        {% endif %}
+      </td>
+      <td>Batch {{ e.batch }}</td>
+      <td class="text-muted small">{{ e.uploaded_at }}</td>
+
+      <!-- Grade status -->
+      <td>
+        {% if e.graded %}
+          <form method="POST" action="/grade/{{ e.anon_id }}" style="display:inline">
+            <button type="submit" class="btn btn-sm btn-success"
+                    onclick="return confirm('Re-grade {{ e.anon_id }}? This will overwrite the existing grade.')">
+              ✓ Re-grade
+            </button>
+          </form>
+        {% else %}
+          <form method="POST" action="/grade/{{ e.anon_id }}" style="display:inline">
+            <button type="submit" class="btn btn-sm btn-outline-success">Grade</button>
+          </form>
+        {% endif %}
+      </td>
+
+      <td class="d-flex gap-1 flex-wrap">
+        <a href="/exam/{{ e.anon_id }}" class="btn btn-sm btn-outline-primary">Review</a>
+        {% if e.graded %}
+          <a href="/results" class="btn btn-sm btn-outline-secondary">Results</a>
+        {% endif %}
+        <form method="POST" action="/exam/{{ e.anon_id }}/delete"
+              onsubmit="return confirm('Remove exam {{ e.anon_id }}? This cannot be undone.')">
+          <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="text-center text-muted py-5">
+  <p class="fs-5">No exams uploaded yet.</p>
+  <a href="/upload-batch" class="btn btn-primary">Upload Exams</a>
+</div>
+{% endif %}
+
+<div class="d-flex justify-content-between mt-4">
+  <a href="/upload-batch" class="btn btn-secondary">← Back</a>
+  <a href="/results" class="btn btn-primary">Next: View Results →</a>
+</div>
+{% endblock %}
