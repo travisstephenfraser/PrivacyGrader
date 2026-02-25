@@ -250,7 +250,7 @@ def read_name_sid_from_cover(file_path: str) -> dict:
         b64       = base64.standard_b64encode(img_bytes).decode()
         client    = anthropic.Anthropic()
         response  = client.messages.create(
-            model="claude-haiku-4-5",
+            model="claude-haiku-4-5-20251001",
             max_tokens=256,
             messages=[{
                 "role": "user",
