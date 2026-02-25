@@ -54,7 +54,7 @@ Built while serving as a Graduate Student Instructor for Microeconomics at UC Be
 
 ```bash
 git clone https://github.com/travisstephenfraser/Rubrica.git
-cd Rubrica
+cd exam_grader
 pip install -r requirements.txt
 ```
 
@@ -83,7 +83,7 @@ Open `http://localhost:5000` in your browser.
 ## Project Structure
 
 ```
-Rubrica/
+exam_grader/
 ├── grader.py            # Flask app — all routes and business logic
 ├── requirements.txt     # Dependencies
 ├── data/
