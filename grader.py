@@ -20,6 +20,7 @@ from pathlib import Path
 
 import anthropic
 import docx
+import ollama
 import pdfplumber
 import pypdfium2 as pdfium
 from pypdf import PdfReader, PdfWriter
@@ -36,6 +37,10 @@ UPLOAD_DIR = DATA_DIR / "uploads"
 RUBRIC_DIR = DATA_DIR / "rubrics"
 DB_PATH = DATA_DIR / "exam_grader.db"
 ALLOWED_EXT = {".pdf"}
+
+# Local vision model used for cover-page OCR (runs via Ollama — no data leaves machine).
+# Swap for any Ollama vision model: "llava:13b", "minicpm-v", etc.
+OLLAMA_VISION_MODEL = "llama3.2-vision"
 
 DATA_DIR.mkdir(exist_ok=True)
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -240,51 +245,47 @@ def match_against_roster(extracted_name: str, extracted_sid: str, roster_entries
 def _render_page_png(pdf_path: str, page_num: int, scale: float = 2.0) -> bytes:
     doc = pdfium.PdfDocument(pdf_path)
     try:
-        bitmap  = doc[page_num].render(scale=scale)
+        page    = doc[page_num]
+        bitmap  = page.render(scale=scale)
         pil_img = bitmap.to_pil()
         buf     = io.BytesIO()
         pil_img.save(buf, format="PNG")
-        return buf.getvalue()
+        result  = buf.getvalue()
+        # Explicitly release PDFium sub-objects before closing the document.
+        # Python's GC may not free them promptly, which corrupts PDFium's
+        # internal state across multiple calls (particularly on Windows).
+        del pil_img, bitmap, page
+        return result
     finally:
-        doc.close()  # release file handle immediately — critical on Windows
+        doc.close()
 
 
 
 def read_name_sid_from_cover(file_path: str) -> dict:
     """
-    Extract student name and SID from cover page (page 0) using Claude Haiku vision.
+    Extract student name and SID from cover page (page 0) using a local Ollama
+    vision model (OLLAMA_VISION_MODEL).  Runs entirely on-device via GPU —
+    no data leaves the machine.
     Returns {"name": "...", "sid": "..."}.  Falls back to empty strings on any failure.
-    Student identity is stored locally only — never forwarded to grading calls.
     """
     try:
         img_bytes = _render_page_png(file_path, 0, scale=1.5)
-        b64       = base64.standard_b64encode(img_bytes).decode()
-        client    = anthropic.Anthropic()
-        response  = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=256,
+        response  = ollama.chat(
+            model=OLLAMA_VISION_MODEL,
             messages=[{
                 "role": "user",
-                "content": [
-                    {
-                        "type": "image",
-                        "source": {"type": "base64", "media_type": "image/png", "data": b64},
-                    },
-                    {
-                        "type": "text",
-                        "text": (
-                            "Look at this exam cover page. Extract the student's full name "
-                            "and student ID number (labelled SID, ID, Student Number, or similar). "
-                            "Respond with ONLY valid JSON, exactly: "
-                            '{"name": "Full Name", "sid": "123456789"} '
-                            "Use an empty string if you cannot find the value. "
-                            "No extra text, no markdown fences — just the JSON object."
-                        ),
-                    },
-                ],
+                "content": (
+                    "Look at this exam cover page. Extract the student's full name "
+                    "and student ID number (labelled SID, ID, Student Number, or similar). "
+                    "Respond with ONLY valid JSON, exactly: "
+                    '{"name": "Full Name", "sid": "123456789"} '
+                    "Use an empty string if you cannot find the value. "
+                    "No extra text, no markdown fences — just the JSON object."
+                ),
+                "images": [img_bytes],
             }],
         )
-        text = response.content[0].text.strip()
+        text = response["message"]["content"].strip()
         # Strip markdown code fences if present
         if text.startswith("```"):
             lines = text.splitlines()
@@ -624,6 +625,17 @@ MULTIPLE CHOICE instructions (critical):
 
     data = json.loads(response_text[start:end])
 
+    # Recalculate total_earned from individual scores — Claude's summary total sometimes
+    # diverges from its own per-question scores due to rounding (e.g. 18 × 3.33 = 59.94
+    # instead of 60).  Keep total_possible as Claude reported it (correctly read from the
+    # rubric), but derive earned by subtracting actual missed points from that total.
+    if data.get("scores"):
+        sum_possible = sum(float(s.get("max_points",    0)) for s in data["scores"])
+        sum_earned   = sum(float(s.get("earned_points", 0)) for s in data["scores"])
+        missed = sum_possible - sum_earned
+        reported_possible = float(data.get("total_possible", sum_possible))
+        data["total_earned"] = round(max(reported_possible - missed, 0), 2)
+
     # Normalize total_possible to nearest integer when rubric point values
     # don't divide evenly (e.g. 18 × 3.33 = 59.94 instead of 60).
     # If the sum is within 0.5 of a whole number, scale both values to that integer.
@@ -633,6 +645,11 @@ MULTIPLE CHOICE instructions (critical):
         scale = intended / raw_possible
         data["total_earned"]   = round(data.get("total_earned", 0) * scale, 2)
         data["total_possible"] = intended
+
+    # Recalculate letter grade from the corrected totals
+    if data.get("total_possible", 0) > 0:
+        pct = data["total_earned"] / data["total_possible"] * 100
+        data["letter_grade"] = letter_grade(pct)
 
     # Hard cap: earned can never exceed possible (guards against rounding overshoot)
     if data.get("total_possible", 0) > 0:
@@ -1453,7 +1470,9 @@ def analytics():
 
 if __name__ == "__main__":
     init_db()
-    print("\n🔒 Exam Grader running locally.")
-    print("   Student names are NEVER sent to Claude.")
+    print("\n Exam Grader running locally.")
+    print("   Cover-page OCR uses local Ollama model — no student data leaves this machine.")
+    print(f"   OCR model : {OLLAMA_VISION_MODEL}  (change OLLAMA_VISION_MODEL to swap)")
+    print("   Grading   : Claude Sonnet via Anthropic API (anonymous IDs only)")
     print("   Open: http://localhost:5000\n")
     app.run(debug=True, port=5000)
