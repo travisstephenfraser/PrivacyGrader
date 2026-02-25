@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>About — Exam Anonymizer & Grader</title>
+  <title>About — Rubrica</title>
   <link rel="stylesheet"
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
   <style>
@@ -107,9 +107,9 @@
 <!-- Header -->
 <div class="page-header text-center">
   <h1 class="display-6 fw-bold mb-1" style="font-family:system-ui,sans-serif;">
-    Exam Anonymizer &amp; Grader
+    ✒ Rubrica
   </h1>
-  <p>System Documentation &mdash; UC Berkeley Haas</p>
+  <p>Privacy-First AI Exam Grading &mdash; UC Berkeley Haas</p>
 </div>
 
 <div class="container" style="max-width:860px;">
@@ -193,10 +193,10 @@
   <section>
     <h2>What It Is</h2>
     <div class="callout mb-3">
-      A <strong>privacy-first, locally-run web application</strong> that automates the grading
-      of handwritten student exams using Claude AI. Runs entirely on your laptop —
-      no cloud database, no external services except the Anthropic API for vision grading.
-      <strong>Student identities are never exposed to AI.</strong>
+      <strong>Rubrica</strong> is a <strong>privacy-first, locally-run web application</strong>
+      that automates the grading of handwritten student exams using Claude AI. Runs entirely
+      on your laptop — no cloud database, no external services except the Anthropic API for
+      vision grading. <strong>Student identities are never exposed to AI.</strong>
     </div>
     <p>
       Built for GSIs and TAs who need to grade large volumes of handwritten exams quickly
@@ -215,6 +215,22 @@
       <li>Results are displayed by anonymous ID; names are only revealed on-demand via a toggle.</li>
       <li>The exam cover page (page 0) is <strong>never</strong> sent during grading — only answer pages.</li>
     </ul>
+
+    <h3>Private Mode</h3>
+    <p>
+      A <strong>Private Mode</strong> toggle (navbar button or dashboard card) hides all student
+      identities across every page simultaneously — designed for use during presentations or
+      screen-sharing without switching between views.
+    </p>
+    <ul>
+      <li>Names and SIDs on the name-assignment page become invisible (data still present and submitted correctly).</li>
+      <li>Cover page thumbnails and the full-page review modal blur when viewing exam pages.</li>
+      <li>Name and SID columns are suppressed on the Results page.</li>
+      <li>Roster preview hides all names; the Reveal Names button is removed.</li>
+      <li>Student name is hidden on individual report pages; the Reveal Name button is removed.</li>
+      <li>A red <strong>PRIVATE MODE</strong> badge appears in the navbar as a persistent reminder.</li>
+      <li>Disabling Private Mode from any page instantly restores all normal functionality.</li>
+    </ul>
   </section>
 
   <!-- ── TECH STACK ───────────────────────────────────────────── -->
@@ -230,6 +246,7 @@
         <tr><td>AI grading model</td><td>Anthropic <code>claude-sonnet-4-6</code> (vision)</td></tr>
         <tr><td>AI name extraction</td><td>Anthropic <code>claude-haiku-4-5</code> (cover page vision)</td></tr>
         <tr><td>UI framework</td><td>Bootstrap 5 — served from CDN</td></tr>
+        <tr><td>Charts</td><td>Chart.js 4 — grade distribution, band breakdown, question difficulty</td></tr>
       </tbody>
     </table>
   </section>
@@ -248,8 +265,9 @@
     <div class="flow-step"><div class="flow-num">3</div>
       <div><strong>Name extraction + review page.</strong> Claude Haiku reads each cover page (page 0)
       and pre-fills student name and SID. A thumbnail and full-page modal viewer let you verify
-      all pages are attached and correct any misreads before confirming. Roster fuzzy-match
-      available if a class list has been uploaded.</div></div>
+      all pages are attached and correct any misreads before confirming. Names and SIDs can be
+      toggled hidden during the review session (opacity-only — data always present). Roster
+      fuzzy-match available if a class list has been uploaded.</div></div>
 
     <div class="flow-step"><div class="flow-num">4</div>
       <div><strong>Saved to SQLite.</strong> Each exam gets a random <code>anon_id</code>.
@@ -288,6 +306,8 @@
       <li>Name assignment page shows a cover-page thumbnail per exam and a full modal page viewer.</li>
       <li>Claude Haiku reads each cover page to pre-fill student name and SID automatically.</li>
       <li>Roster fuzzy-match confirms identity against an uploaded class list (local only, no API).</li>
+      <li>Names and SIDs can be hidden during review with a toggle — values are always preserved in the form and submitted correctly.</li>
+      <li>Cover page blurs automatically in the full-page review modal when Private Mode is active.</li>
       <li>Names optional at upload time; editable anytime via each exam's detail page.</li>
     </ul>
 
@@ -321,6 +341,7 @@
     <ul>
       <li>Page-by-page viewer for every uploaded exam.</li>
       <li>Cover labeled "not sent to Claude"; answer pages labeled "sent to Claude for grading."</li>
+      <li>Cover page blurs automatically when Private Mode is active.</li>
       <li>Editable student name, re-grade, and clear-grade controls per exam.</li>
     </ul>
 
@@ -328,6 +349,7 @@
     <ul>
       <li>Results page filterable by version and batch.</li>
       <li>Student names hidden by default, revealed with a local-only toggle.</li>
+      <li>Private Mode suppresses all name/SID columns across Results, Roster, and Reports simultaneously.</li>
       <li><strong>Grade adjustment:</strong> expand any row's Details panel to edit per-question
           earned points inline; changes update the summary row live and save via AJAX.</li>
       <li><strong>Summary CSV:</strong> one row per student — Anon ID, Name, SID, Version, Batch,
@@ -337,8 +359,17 @@
       <li><strong>Per-student report:</strong> printable HTML page per student with score card,
           progress bar, color-coded question breakdown, and overall feedback. Print-ready via browser.</li>
       <li><strong>Score normalization:</strong> if Claude's reported <code>total_possible</code>
-          is within 0.5 of a whole number (e.g. 18 × 3.333334 = 60.000012 → 60), both totals are
-          scaled to that integer so scores display cleanly. Earned is hard-capped at possible.</li>
+          is within 0.5 of a whole number, both totals are scaled so scores display cleanly.
+          Earned is hard-capped at possible.</li>
+    </ul>
+
+    <h3>Analytics</h3>
+    <ul>
+      <li>Grade distribution histogram and grade band donut chart.</li>
+      <li>Summary stats: mean, median, standard deviation, range, pass rate.</li>
+      <li>Per-question average score bar chart — color-coded by performance tier.</li>
+      <li>Automatic alert for questions where average score falls below 60%.</li>
+      <li>All charts filterable by version and batch.</li>
     </ul>
   </section>
 
@@ -388,18 +419,19 @@ roster (
 │   ├── uploads/             # Individual exam PDFs named by anon_id  ({{ upload_mb }} MB)
 │   └── rubrics/             # Original rubric files — {{ rubric_file_count }} file{{ 's' if rubric_file_count != 1 else '' }} on disk
 └── templates/
-    ├── base.html             # Bootstrap navbar + layout shell
-    ├── index.html            # Dashboard (counts, quick links)
+    ├── base.html             # Bootstrap navbar + layout shell (Private Mode toggle lives here)
+    ├── index.html            # Dashboard (counts, quick links, Private Mode card)
     ├── setup.html            # Rubric upload / manage
     ├── view_rubric.html      # Rubric content viewer
     ├── upload_batch.html     # PDF upload + split form
-    ├── batch_review.html     # Name assignment + thumbnail review
+    ├── batch_review.html     # Name assignment + thumbnail review (name-hide toggle)
     ├── exams.html            # Anonymized exam list + bulk actions
     ├── exam_detail.html      # Per-exam page viewer + name editor
     ├── grade_progress.html   # Live grading progress bar
     ├── results.html          # Grade results, adjustment, and exports
     ├── student_report.html   # Per-student printable report
     ├── roster.html           # Roster upload and preview
+    ├── analytics.html        # Grade distribution, band breakdown, question difficulty
     └── docs.html             # This page</pre>
   </section>
 
@@ -433,7 +465,7 @@ roster (
 
   <hr class="mt-4">
   <p class="text-muted small text-center pb-4 sans">
-    Exam Anonymizer &amp; Grader — UC Berkeley Haas —
+    Rubrica — UC Berkeley Haas —
     page generated live from local database
   </p>
 

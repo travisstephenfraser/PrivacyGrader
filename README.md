@@ -1,6 +1,6 @@
-# Exam Anonymizer & Grader
+# ✒ Rubrica
 
-A privacy-first Flask web app that anonymizes student exams, grades them using Claude's vision AI against a user-defined rubric, and maps results back to student names — all locally. Student names are never sent to Claude.
+A privacy-first, locally-run web app that grades handwritten student exams using Claude's vision AI. Student identities are fully anonymized before any API call — names never leave your machine.
 
 Built while serving as a Graduate Student Instructor for Microeconomics at UC Berkeley Haas.
 
@@ -8,28 +8,29 @@ Built while serving as a Graduate Student Instructor for Microeconomics at UC Be
 
 ## How It Works
 
-1. **Upload a class roster** — student names and SIDs are stored locally in a SQLite database
-2. **Upload exams** — individual PDFs or a batch PDF that the app splits automatically
-3. **Assign anonymous IDs** — each exam is mapped to a random 8-character ID; names stay local
-4. **Upload a rubric** — PDF or DOCX format; the rubric is what gets sent to Claude along with the anonymized exam
-5. **Grade** — Claude's vision AI reads each exam image and scores it against the rubric
-6. **Review & export** — grades are mapped back to student names locally and can be exported to CSV
-
-Student names and roster data never leave your machine at any point in this process.
+1. **Upload a rubric** — PDF or DOCX; sent natively to Claude to preserve tables and formatting
+2. **Upload exams** — one combined batch PDF; the app splits it automatically by page count
+3. **Assign names** — Claude Haiku reads each cover page to pre-fill student name and SID; fuzzy roster matching corrects OCR errors
+4. **Grade** — Claude Sonnet reads each answer page as an image and scores it against the rubric, using only an anonymous ID — never a name
+5. **Review & export** — grades mapped back to names locally; export to CSV or print per-student reports
+6. **Analyze** — grade distribution, band breakdown, and per-question difficulty charts
 
 ---
 
 ## Features
 
-- Batch PDF splitting — upload one file for the whole class, the app handles the rest
-- Anonymous grading — random IDs replace student names before any API call
-- Fuzzy roster matching — local OCR name/SID matching with common character confusion corrections (O→0, l→1, etc.)
-- Progress tracking — live grading progress view with per-exam status
-- Analytics dashboard — class score distribution, letter grade breakdown
-- Rubric versioning — upload and manage multiple rubric versions
-- Student reports — individual report view per student
-- Export to CSV — final grades with names re-attached locally
-- Docs page — built-in documentation at `/docs`
+- **Anonymous grading** — random 8-character IDs replace student names before any API call
+- **Batch PDF splitting** — upload one file for the whole class; split happens entirely in memory
+- **Cover page vision** — Claude Haiku auto-extracts names and SIDs from cover pages at upload time
+- **Roster fuzzy matching** — local name/SID matching with character confusion corrections (O→0, l→1, etc.)
+- **Private Mode** — single toggle hides all student names, SIDs, and blurs cover pages across every page simultaneously; designed for presentations and screen-sharing
+- **Rubric versioning** — upload and manage multiple rubric versions (A, B, …) for different exam variants
+- **Score adjustment** — edit per-question earned points inline after grading; updates save via AJAX
+- **Analytics** — grade distribution histogram, letter grade donut chart, per-question average score bar chart, automatic low-performance alerts
+- **Student reports** — printable per-student report with score card, progress bar, and question breakdown
+- **Export to CSV** — summary (one row per student) and detailed (one column per question) formats
+- **Live progress** — background grading thread with a live progress bar; browser stays usable
+- **Built-in docs** — full system documentation at `/docs`, printable as PDF
 
 ---
 
@@ -38,11 +39,12 @@ Student names and roster data never leave your machine at any point in this proc
 | Layer | Technology |
 |---|---|
 | Web framework | Flask 3.x |
-| AI grading | Anthropic Claude (vision) |
-| PDF handling | pdfplumber, pypdf, pypdfium2 |
+| AI grading | `claude-sonnet-4-6` (vision) |
+| AI name extraction | `claude-haiku-4-5` (cover page vision) |
+| PDF handling | pypdf, pypdfium2, pdfplumber |
 | Document parsing | python-docx |
 | Database | SQLite (local) |
-| Frontend | Bootstrap 5 |
+| Frontend | Bootstrap 5 + Chart.js 4 |
 
 ---
 
@@ -51,12 +53,12 @@ Student names and roster data never leave your machine at any point in this proc
 **Requirements:** Python 3.10+, an [Anthropic API key](https://console.anthropic.com/)
 
 ```bash
-git clone https://github.com/your-username/exam-grader.git
-cd exam-grader
+git clone https://github.com/travisstephenfraser/Rubrica.git
+cd Rubrica
 pip install -r requirements.txt
 ```
 
-Set your API key as an environment variable:
+Set your API key:
 
 ```bash
 # Mac/Linux
@@ -74,14 +76,14 @@ set PYTHONIOENCODING=utf-8
 python grader.py
 ```
 
-Then open `http://localhost:5000` in your browser.
+Open `http://localhost:5000` in your browser.
 
 ---
 
 ## Project Structure
 
 ```
-exam_grader/
+Rubrica/
 ├── grader.py            # Flask app — all routes and business logic
 ├── requirements.txt     # Dependencies
 ├── data/
@@ -95,10 +97,11 @@ exam_grader/
 
 ## Privacy Model
 
-- The `data/` directory is excluded from version control (see `.gitignore`)
-- Only anonymous IDs, exam content, and the rubric are transmitted to the Claude API
-- Roster fuzzy matching runs entirely locally — no student names or SIDs touch the network
-- Name-to-grade mapping happens locally after grading is complete
+- The `data/` directory is excluded from version control (`.gitignore`)
+- Only anonymous IDs, exam page images, and the rubric are transmitted to the Claude API
+- Student names and SIDs never touch the network at any point
+- Roster fuzzy matching runs entirely locally — no API call
+- **Private Mode** provides an additional presentation layer: names become invisible in the UI while remaining intact in the database and form submissions
 
 ---
 

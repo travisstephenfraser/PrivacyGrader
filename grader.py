@@ -24,7 +24,7 @@ import pdfplumber
 import pypdfium2 as pdfium
 from pypdf import PdfReader, PdfWriter
 from flask import (Flask, flash, g, jsonify, redirect, render_template,
-                   request, send_file, url_for)
+                   request, send_file, session, url_for)
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -43,6 +43,17 @@ RUBRIC_DIR.mkdir(exist_ok=True)
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(32)
+
+
+@app.context_processor
+def inject_private_mode():
+    return {"private_mode": session.get("private_mode", False)}
+
+
+@app.route("/toggle-private-mode", methods=["POST"])
+def toggle_private_mode():
+    session["private_mode"] = not session.get("private_mode", False)
+    return redirect(request.form.get("next") or request.referrer or "/")
 
 # ---------------------------------------------------------------------------
 # Background grading job state

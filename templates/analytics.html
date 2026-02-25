@@ -1,13 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Analytics — Exam Grader{% endblock %}
+{% block title %}Analytics — Rubrica{% endblock %}
 
 {% block extra_head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
   .stat-card { background:#fff; border:1px solid #dee2e6; border-radius:8px; padding:1rem 1.25rem; }
   .stat-card .num { font-size:1.9rem; font-weight:700; line-height:1; }
-  .stat-card .lbl { font-size:.78rem; color:#6c757d; margin-top:.2rem; }
-  .chart-card { background:#fff; border:1px solid #dee2e6; border-radius:8px; padding:1.25rem; }
+  .stat-card .lbl { font-size:.78rem; color:#6c757d; margin-top:.25rem; }
 </style>
 {% endblock %}
 
@@ -65,17 +64,13 @@
   </div>
   <div class="col-6 col-md-2">
     <div class="stat-card text-center">
-      <div class="num {% if mean >= 70 %}text-success{% elif mean >= 60 %}text-warning{% else %}text-danger{% endif %}">
-        {{ mean }}%
-      </div>
+      <div class="num {% if mean >= 70 %}text-success{% elif mean >= 60 %}text-warning{% else %}text-danger{% endif %}">{{ mean }}%</div>
       <div class="lbl">Mean score</div>
     </div>
   </div>
   <div class="col-6 col-md-2">
     <div class="stat-card text-center">
-      <div class="num {% if median >= 70 %}text-success{% elif median >= 60 %}text-warning{% else %}text-danger{% endif %}">
-        {{ median }}%
-      </div>
+      <div class="num {% if median >= 70 %}text-success{% elif median >= 60 %}text-warning{% else %}text-danger{% endif %}">{{ median }}%</div>
       <div class="lbl">Median score</div>
     </div>
   </div>
@@ -87,15 +82,13 @@
   </div>
   <div class="col-6 col-md-2">
     <div class="stat-card text-center">
-      <div class="num text-muted" style="font-size:1.3rem">{{ lo }}% – {{ hi }}%</div>
-      <div class="lbl">Range (min – max)</div>
+      <div class="num text-muted" style="font-size:1.3rem">{{ lo }}%–{{ hi }}%</div>
+      <div class="lbl">Range (min–max)</div>
     </div>
   </div>
   <div class="col-6 col-md-2">
     <div class="stat-card text-center">
-      <div class="num {% if pass_r >= 70 %}text-success{% elif pass_r >= 50 %}text-warning{% else %}text-danger{% endif %}">
-        {{ pass_r }}%
-      </div>
+      <div class="num {% if pass_r >= 70 %}text-success{% elif pass_r >= 50 %}text-warning{% else %}text-danger{% endif %}">{{ pass_r }}%</div>
       <div class="lbl">Pass rate (≥70%)</div>
     </div>
   </div>
@@ -107,54 +100,58 @@
   <strong>⚠ Questions needing attention</strong> — average score below 60%:
   <ul class="mb-0 mt-1">
     {% for s in struggling %}
-    <li>
-      <strong>{{ s.question }}</strong> — avg {{ s.avg }}%,
-      {{ s.fail_rate }}% of students scored below 70%
-    </li>
+    <li><strong>{{ s.question }}</strong> — avg {{ s.avg }}%, {{ s.fail_rate }}% of students scored below 70%</li>
     {% endfor %}
   </ul>
 </div>
 {% endif %}
 
-<!-- Charts row 1: Distribution + Grade Band -->
+<!-- Row 1: Distribution + Grade Band -->
 <div class="row g-4 mb-4">
   <div class="col-lg-8">
-    <div class="chart-card h-100">
-      <h6 class="fw-semibold text-muted mb-3">Grade Distribution</h6>
-      <canvas id="distChart" height="220"></canvas>
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <h6 class="fw-semibold text-muted mb-3">Grade Distribution</h6>
+        <div style="position:relative; height:525px">
+          <canvas id="distChart"></canvas>
+        </div>
+      </div>
     </div>
   </div>
   <div class="col-lg-4">
-    <div class="chart-card h-100 d-flex flex-column">
-      <h6 class="fw-semibold text-muted mb-3">Grade Band Breakdown</h6>
-      <div class="flex-grow-1 d-flex align-items-center">
-        <canvas id="bandChart"></canvas>
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body d-flex flex-column">
+        <h6 class="fw-semibold text-muted mb-3">Grade Band Breakdown</h6>
+        <div class="flex-grow-1 d-flex align-items-center justify-content-center">
+          <div style="position:relative; width:100%; max-width:560px">
+            <canvas id="bandChart"></canvas>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Charts row 2: Question difficulty -->
+<!-- Row 2: Question difficulty -->
 {% if q_labels %}
-<div class="chart-card mb-4">
-  <h6 class="fw-semibold text-muted mb-3">Average Score % per Question</h6>
-  <canvas id="qChart" style="min-height:{{ [280, q_labels|length * 34]|max }}px"></canvas>
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <h6 class="fw-semibold text-muted mb-3">Average Score % per Question</h6>
+    <div style="position:relative; height:{{ [260, q_labels|length * 42]|max }}px">
+      <canvas id="qChart"></canvas>
+    </div>
+  </div>
 </div>
 {% endif %}
 
 <script>
 (function () {
-  /* ── Data from server ── */
   const distLabels = {{ dist_labels | tojson }};
   const distBins   = {{ dist_bins   | tojson }};
-  const bandData   = [
-    {{ grade_bands.A }}, {{ grade_bands.B }}, {{ grade_bands.C }},
-    {{ grade_bands.D }}, {{ grade_bands.F }}
-  ];
-  const qLabels   = {{ q_labels    | tojson }};
-  const qAvgPct   = {{ q_avg_pct   | tojson }};
+  const bandData   = [{{ grade_bands.A }}, {{ grade_bands.B }}, {{ grade_bands.C }}, {{ grade_bands.D }}, {{ grade_bands.F }}];
+  const qLabels    = {{ q_labels   | tojson }};
+  const qAvgPct    = {{ q_avg_pct  | tojson }};
 
-  /* ── Colour helpers ── */
   function distColor(label) {
     const lo = parseInt(label);
     if (lo >= 90) return '#198754';
@@ -171,88 +168,62 @@
 
   Chart.defaults.font.family = 'system-ui, sans-serif';
 
-  /* ── 1. Grade Distribution ── */
+  /* 1. Grade Distribution */
   new Chart(document.getElementById('distChart'), {
     type: 'bar',
     data: {
       labels: distLabels,
-      datasets: [{
-        label: 'Students',
-        data: distBins,
-        backgroundColor: distLabels.map(distColor),
-        borderRadius: 4,
-      }]
+      datasets: [{ label: 'Students', data: distBins, backgroundColor: distLabels.map(distColor), borderRadius: 4 }]
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: {
-          label: ctx => ` ${ctx.parsed.y} student${ctx.parsed.y !== 1 ? 's' : ''}`
-        }}
+        tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y} student${ctx.parsed.y !== 1 ? 's' : ''}` } }
       },
       scales: {
-        y: {
-          beginAtZero: true,
-          ticks: { stepSize: 1, precision: 0 },
-          title: { display: true, text: 'Number of students' }
-        },
+        y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 }, title: { display: true, text: 'Students' } },
         x: { title: { display: true, text: 'Score (%)' } }
       }
     }
   });
 
-  /* ── 2. Grade Band Donut ── */
+  /* 2. Grade Band Donut */
   new Chart(document.getElementById('bandChart'), {
     type: 'doughnut',
     data: {
       labels: ['A (90–100)', 'B (80–89)', 'C (70–79)', 'D (60–69)', 'F (<60)'],
-      datasets: [{
-        data: bandData,
-        backgroundColor: ['#198754','#0d6efd','#6f42c1','#fd7e14','#dc3545'],
-        borderWidth: 2,
-      }]
+      datasets: [{ data: bandData, backgroundColor: ['#198754','#0d6efd','#6f42c1','#fd7e14','#dc3545'], borderWidth: 2 }]
     },
     options: {
       responsive: true,
       plugins: {
         legend: { position: 'bottom', labels: { boxWidth: 12, padding: 10 } },
-        tooltip: { callbacks: {
-          label: ctx => ` ${ctx.label}: ${ctx.parsed} student${ctx.parsed !== 1 ? 's' : ''}`
-        }}
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed} student${ctx.parsed !== 1 ? 's' : ''}` } }
       }
     }
   });
 
-  /* ── 3. Question Difficulty ── */
+  /* 3. Question Difficulty */
   if (qLabels.length > 0) {
     new Chart(document.getElementById('qChart'), {
       type: 'bar',
       data: {
         labels: qLabels,
-        datasets: [{
-          label: 'Avg score %',
-          data: qAvgPct,
-          backgroundColor: qAvgPct.map(qColor),
-          borderRadius: 4,
-        }]
+        datasets: [{ label: 'Avg score %', data: qAvgPct, backgroundColor: qAvgPct.map(qColor), borderRadius: 4 }]
       },
       options: {
         indexAxis: 'y',
         responsive: true,
+        maintainAspectRatio: false,
         plugins: {
           legend: { display: false },
-          tooltip: { callbacks: {
-            label: ctx => ` ${ctx.parsed.x}% average`
-          }}
+          tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.x}% average` } }
         },
         scales: {
-          x: {
-            beginAtZero: true, max: 100,
-            title: { display: true, text: 'Average score (%)' },
-            ticks: { callback: v => v + '%' }
-          },
-          y: { ticks: { font: { family: 'monospace' } } }
+          x: { beginAtZero: true, max: 100, title: { display: true, text: 'Average score (%)' }, ticks: { callback: v => v + '%' } },
+          y: { ticks: { font: { size: 13 } } }
         }
       }
     });

@@ -1,5 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Exam {{ exam.anon_id }} — Review{% endblock %}
+{% block extra_head %}
+<style>
+  .cover-blurred { filter: blur(10px); transition: filter 0.2s; }
+</style>
+{% endblock %}
 {% block content %}
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -57,7 +62,7 @@
   <div class="card-body">
     <h5 class="card-title mb-3">Student Info</h5>
     <form method="POST" action="/exam/{{ exam.anon_id }}/update-name">
-      <div class="row g-2 align-items-end">
+      <div class="row g-2 align-items-end"{% if private_mode %} style="opacity:0;pointer-events:none"{% endif %}>
         <div class="col-sm-6">
           <label class="form-label small text-muted mb-1">Full Name</label>
           <input type="text" name="student_name" class="form-control"
@@ -98,7 +103,7 @@
     <div class="text-center">
       <img id="page-img"
            src="/exam/{{ exam.anon_id }}/page/0"
-           class="img-fluid border rounded shadow-sm"
+           class="img-fluid border rounded shadow-sm{% if private_mode %} cover-blurred{% endif %}"
            style="max-height: 85vh"
            alt="Exam page">
       <p id="page-label" class="text-muted small mt-2 mb-0">
@@ -109,11 +114,15 @@
 </div>
 
 <script>
-const anonId    = "{{ exam.anon_id }}";
-const pageCount = {{ page_count }};
+const anonId      = "{{ exam.anon_id }}";
+const pageCount   = {{ page_count }};
+const privateMode = {{ 'true' if private_mode else 'false' }};
 
 function showPage(num) {
-  document.getElementById('page-img').src = `/exam/${anonId}/page/${num}`;
+  const img = document.getElementById('page-img');
+  if (privateMode && num === 0) img.classList.add('cover-blurred');
+  img.onload = () => { img.classList.toggle('cover-blurred', num === 0 && privateMode); img.onload = null; };
+  img.src = `/exam/${anonId}/page/${num}`;
   document.getElementById('page-label').textContent = num === 0
     ? 'Cover page — not sent to Claude during grading'
     : `Page ${num + 1} of ${pageCount} — sent to Claude for grading`;

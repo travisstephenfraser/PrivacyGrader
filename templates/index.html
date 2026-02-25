@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Dashboard — Exam Grader{% endblock %}
+{% block title %}Dashboard — Rubrica{% endblock %}
 {% block content %}
 <h2 class="mb-4">Dashboard</h2>
 
@@ -34,6 +34,25 @@
   <div class="card-body">
     <h5 class="card-title">🔒 Privacy Guarantee</h5>
     <p class="mb-0">Student names are stored <strong>only on this machine</strong>. Claude receives anonymous IDs, exam text, and rubric only — never student identities.</p>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body d-flex align-items-center justify-content-between flex-wrap gap-3">
+    <div>
+      <h5 class="card-title mb-1">🔴 Private Mode
+        {% if private_mode %}<span class="badge bg-danger ms-2">ON</span>{% else %}<span class="badge bg-secondary ms-2">OFF</span>{% endif %}
+      </h5>
+      <p class="text-muted small mb-0">Hides all student names, SIDs, and blurs cover pages — for use during presentations.</p>
+    </div>
+    <form method="POST" action="/toggle-private-mode">
+      <input type="hidden" name="next" value="{{ request.url }}">
+      {% if private_mode %}
+        <button type="submit" class="btn btn-danger">Disable Private Mode</button>
+      {% else %}
+        <button type="submit" class="btn btn-outline-danger">Enable Private Mode</button>
+      {% endif %}
+    </form>
   </div>
 </div>
 

@@ -1,5 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Name Assignment — Upload{% endblock %}
+{% block extra_head %}
+<style>
+  .names-hidden .name-cell,
+  .names-hidden .sid-cell { opacity: 0; }
+  .cover-blurred { filter: blur(10px); transition: filter 0.2s; }
+</style>
+{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <div>
@@ -48,7 +55,7 @@
             <th style="width:90px"></th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="examTbody"{% if private_mode %} class="names-hidden"{% endif %}>
           {% for exam in exams %}
           <tr>
             <td class="text-muted">{{ loop.index }}</td>
@@ -64,7 +71,7 @@
             </td>
 
             <!-- Name input (pre-filled by Claude) -->
-            <td>
+            <td class="name-cell">
               <input type="text" name="name_{{ loop.index0 }}"
                      class="form-control form-control-sm"
                      value="{{ exam.name }}"
@@ -72,7 +79,7 @@
             </td>
 
             <!-- SID input (pre-filled by Claude) -->
-            <td>
+            <td class="sid-cell">
               <input type="text" name="sid_{{ loop.index0 }}"
                      class="form-control form-control-sm font-monospace"
                      value="{{ exam.sid }}"
@@ -128,7 +135,7 @@
 
         <!-- Page image -->
         <div class="text-center">
-          <img id="modalImg" src="" class="img-fluid border rounded shadow-sm"
+          <img id="modalImg" src="" class="img-fluid border rounded shadow-sm{% if private_mode %} cover-blurred{% endif %}"
                style="max-height:78vh" alt="Exam page">
           <p id="modalPageLabel" class="text-muted small mt-2 mb-0"></p>
         </div>
@@ -148,7 +155,8 @@
 </div>
 
 <script>
-const reviewId = "{{ review_id }}";
+const reviewId    = "{{ review_id }}";
+const privateMode = {{ 'true' if private_mode else 'false' }};
 let activeExam  = 0;
 let activePage  = 0;
 let totalPages  = 0;
@@ -187,8 +195,10 @@ function buildPageNav() {
 
 function loadPage(pageNum) {
   activePage = pageNum;
-  document.getElementById('modalImg').src =
-    `/upload-batch/preview/${reviewId}/${activeExam}/${pageNum}`;
+  const img = document.getElementById('modalImg');
+  if (privateMode && pageNum === 0) img.classList.add('cover-blurred');
+  img.onload = () => { img.classList.toggle('cover-blurred', pageNum === 0 && privateMode); img.onload = null; };
+  img.src = `/upload-batch/preview/${reviewId}/${activeExam}/${pageNum}`;
   document.getElementById('modalPageLabel').textContent =
     pageNum === 0
       ? `Cover page (page 1 of ${totalPages})`

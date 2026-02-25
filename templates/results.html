@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Results — Exam Grader{% endblock %}
+{% block title %}Results — Rubrica{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h2 class="mb-0">Grading Results</h2>
@@ -34,7 +34,7 @@
       <div class="col-auto">
         <div class="form-check mt-3">
           <input class="form-check-input" type="checkbox" name="show_names"
-                 value="1" id="showNames" {% if show_names %}checked{% endif %}>
+                 value="1" id="showNames" {% if show_names and not private_mode %}checked{% endif %}>
           <label class="form-check-label" for="showNames">
             Reveal student names
           </label>
@@ -60,7 +60,7 @@
   <thead class="table-light">
     <tr>
       <th>Anon ID</th>
-      {% if show_names %}<th>Student</th><th>SID</th>{% endif %}
+      {% if show_names and not private_mode %}<th>Student</th><th>SID</th>{% endif %}
       <th>Version</th>
       <th>Batch</th>
       <th>Score</th>
@@ -74,7 +74,7 @@
     {% set pct = (r.total_earned / r.total_possible * 100) if r.total_possible else 0 %}
     <tr>
       <td><span class="anon-id">{{ r.anon_id }}</span></td>
-      {% if show_names %}
+      {% if show_names and not private_mode %}
         <td>{{ r.student_name }}</td>
         <td class="font-monospace small text-muted">{{ r.student_sid or '—' }}</td>
       {% endif %}
@@ -110,7 +110,7 @@
     </tr>
     <!-- Expandable detail row -->
     <tr class="collapse" id="detail-{{ r.anon_id }}">
-      <td colspan="{% if show_names %}9{% else %}7{% endif %}" class="bg-light">
+      <td colspan="{% if show_names and not private_mode %}9{% else %}7{% endif %}" class="bg-light">
         <div class="p-3">
           <h6 class="text-muted mb-2">Overall Feedback</h6>
           <p>{{ r.overall_feedback }}</p>
