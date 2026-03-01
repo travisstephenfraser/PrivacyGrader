@@ -13,7 +13,7 @@ from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
     HRFlowable, KeepTogether
 )
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.lib.enums import TA_CENTER
 
 OUTPUT = Path(__file__).parent / "data" / "rubrics" / "UGBA101A_Exam1_GREEN_V1.pdf"
 
